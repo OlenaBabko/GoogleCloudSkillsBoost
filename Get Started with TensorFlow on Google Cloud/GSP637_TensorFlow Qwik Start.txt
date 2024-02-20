@@ -1,0 +1,65 @@
+# Task 1. Access Cloud Code
+# Application Menu > Terminal > New Terminal
+pip install google-cloud-logging
+pip install ---upgrade protobuf
+pip install --upgrade tensorflow
+python --version
+python -c "import tensorflow;print(tensorflow.__version__)"
+
+
+
+# Task 2. Create your first machine learning model
+# relationship?
+Y=3X+1
+
+
+
+
+# Task 3. Start coding
+# Application Menu > File > New File
+import logging
+import google.cloud.logging as cloud_logging
+from google.cloud.logging.handlers import CloudLoggingHandler
+from google.cloud.logging_v2.handlers import setup_logging
+
+cloud_logger = logging.getLogger('cloudLogger')
+cloud_logger.setLevel(logging.INFO)
+cloud_logger.addHandler(CloudLoggingHandler(cloud_logging.Client()))
+cloud_logger.addHandler(logging.StreamHandler())
+
+
+# Import TensorFlow
+import tensorflow as tf
+
+
+# Import numpy
+import numpy as np
+
+
+# Y=3x+1
+xs = np.array([-1.0, 0.0, 1.0, 2.0, 3.0, 4.0], dtype=float)
+ys = np.array([-2.0, 1.0, 4.0, 7.0, 10.0, 13.0], dtype=float)
+
+model = tf.keras.Sequential([tf.keras.layers.Dense(units=1, input_shape=[1])])
+
+# you must specify 2 functions, a loss and an optimizer
+# mean_squared_error for the loss and stochastic gradient descent (sgd) for the optimizer
+model.compile(optimizer=tf.keras.optimizers.SGD(), loss=tf.keras.losses.MeanSquaredError())
+
+# Train the neural network 
+# use model.fit
+model.fit(xs, ys, epochs=500)
+
+# Press Ctrl + s or go toApplication Menu > File > Save.
+# In the prompt, type model.py for name and press OK.
+
+# Run your script
+python model.py
+
+
+# You can use the model.predict method to figure out the Y for an X 
+# not previously seen by the model during training  (if X = 10)
+cloud_logger.info(str(model.predict([10.0])))
+
+# Press Ctrl+s or go toApplication Menu > File > Save
+python model.py
