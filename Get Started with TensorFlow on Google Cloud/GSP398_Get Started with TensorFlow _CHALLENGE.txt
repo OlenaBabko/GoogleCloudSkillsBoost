@@ -1,0 +1,489 @@
+Challenge Lab
+
+# Activate Cloud Shell Activate Cloud Shell
+# (Optional) You can list the active account :
+gcloud auth list
+# Click Authorize.
+# (Optional) You can list the project ID :
+gcloud config list project
+
+
+# In Cloud Shell, use gcloud to enable the services used in the lab
+gcloud services enable \
+  compute.googleapis.com \
+  monitoring.googleapis.com \
+  logging.googleapis.com \
+  notebooks.googleapis.com \
+  aiplatform.googleapis.com \
+  artifactregistry.googleapis.com \
+  container.googleapis.com
+
+
+
+
+### Task 1. Create a Vertex Notebooks instance
+# Vertex AI > Workbench > User-Managed Notebooks.
+# Create a Notebook instance. Select TensorFlow Enterprise 2.11 Without GPUs. 
+# Name your notebook cnn-challenge and leave the default configurations.
+# Select region <________>.
+# Click OPEN JUPYTERLAB. 
+# Create the vertex AI notebook instance
+
+### Task 2. Download the Challenge Notebook
+# In your notebook, click the terminal.
+# Clone the repo:
+	git clone https://github.com/GoogleCloudPlatform/training-data-analyst
+
+# Download the challenge Notebook
+# Go to the enclosing folder: 
+training-data-analyst/self-paced-labs/learning-tensorflow/cnn-challenge-lab/.
+# Open cnn-challenge-lab.ipynb.
+# In the Setup section, define your PROJECT_ID and GCS_BUCKET variables.
+	PROJECT_ID = "qwiklabs-gcp-01-98863cc86067"
+	REGION = "us-east4" 
+	BUCKET_NAME = "gs://qwiklabs-gcp-01-98863cc86067"
+# Create a Cloud Storage Bucket
+
+
+### Task 3. Create a training script
+# In this section, you will complete the training script task.py using TensorFlow.
+# Write a TensorFlow CNN classifier
+# Fill out the #TODO section to add the last layer for the model creation.
+# TODO: Write the last layer.
+# Hint: KMNIST has 10 output classes.
+      tf.keras.layers.Dense(10, activation=tf.nn.softmax)
+# Fill out the #TODO section to save your model. 
+# You should save it to the AIP_MODEL_DIR environment variable. 
+	model.save(MODEL_DIR)
+# Create training script
+
+
+###
+# Dense layers
+# The output from the convolution stack is flattened and passed to a set of dense layers for classification.
+model = tf.keras.models.Sequential([                               
+      tf.keras.layers.Conv2D(64, (3,3), activation=tf.nn.relu, input_shape=(28, 28, 1)),
+      tf.keras.layers.MaxPooling2D(2, 2),
+      tf.keras.layers.Conv2D(64, (3,3), activation=tf.nn.relu),
+      tf.keras.layers.MaxPooling2D(2,2),
+      tf.keras.layers.Flatten(),
+      tf.keras.layers.Dense(128, activation=tf.nn.relu),
+      tf.keras.layers.Dense(10, activation=tf.nn.softmax)
+    ])
+model.compile(optimizer = tf.keras.optimizers.Adam(),
+      loss = tf.keras.losses.SparseCategoricalCrossentropy(),
+      metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
+
+
+# Train and save the model
+MODEL_DIR = os.getenv("AIP_MODEL_DIR")
+model.fit(ds_train, epochs=args.epochs)
+model.save(MODEL_DIR)
+###
+
+
+
+
+
+### Task 4. Train the model
+# Define custom training job on Vertex AI
+# Fill out the #TODO section to create a custom training job on vertex ai. 
+# Hint: Make sure that you specify the script_path, container_uri, and model_serving_container_image_uri parameters.
+
+# Train the model using Vertex AI pipelines
+# Fill out the #TODO section and run the custom training job function you defined above.
+# Hint: Make sure that you specify the args and machine_type parameters.
+	...
+	# TODO: fill in the remaining arguments for the CustomTrainingJob function.
+    	script_path="task.py",
+    	container_uri=TRAIN_IMAGE,
+    	model_serving_container_image_uri=DEPLOY_IMAGE
+	 ...
+# Note: It can take around 8-10 minutes to train the model.
+# Train the Model on Vertex AI
+	...
+	# TODO: fill in the remaining arguments to run the custom training job function.
+    	args=CMDARGS,
+    	machine_type=TRAIN_COMPUTE,...
+
+
+###	
+# Train the model
+job = aiplatform.CustomTrainingJob(
+    display_name=JOB_NAME,
+    script_path="task.py",
+    container_uri=TRAIN_IMAGE,
+    requirements=["tensorflow_datasets==4.6.0"],
+    model_serving_container_image_uri=DEPLOY_IMAGE,
+)
+
+MODEL_DISPLAY_NAME = "fashionmnist-" + TIMESTAMP
+
+# Start the training
+if TRAIN_GPU:
+    model = job.run(
+        model_display_name=MODEL_DISPLAY_NAME,
+        args=CMDARGS,
+        replica_count=1,
+        machine_type=TRAIN_COMPUTE,
+        accelerator_type=TRAIN_GPU.name,
+        accelerator_count=TRAIN_NGPU,
+    )
+else:
+    model = job.run(
+        model_display_name=MODEL_DISPLAY_NAME,
+        args=CMDARGS,
+        replica_count=1,
+        machine_type=TRAIN_COMPUTE,
+        accelerator_count=0,
+    )
+###
+
+
+
+
+### Task 5. Deploy the model to a Vertex Online Prediction Endpoint
+# Fill out the #TODO section deploy the model to an endpoint. 
+# Hint: Make sure that you specify the traffic_split, machine_type, min_replica_count and max_replica_count parameters.
+	...
+	# TODO: fill in the remaining arguments to deploy the model to an endpoint.
+        traffic_split=TRAFFIC_SPLIT,
+        machine_type=DEPLOY_COMPUTE,
+        min_replica_count=MIN_NODES,
+        max_replica_count=MAX_NODES
+# Note: It can take around 10-15 minutes to deploy the model.
+# Deploy the model
+
+# Deploy the model
+DEPLOYED_NAME = "fashionmnist_deployed-" + TIMESTAMP
+
+TRAFFIC_SPLIT = {"0": 100}
+
+MIN_NODES = 1
+MAX_NODES = 1
+
+if DEPLOY_GPU:
+    endpoint = model.deploy(
+        deployed_model_display_name=DEPLOYED_NAME,
+        traffic_split=TRAFFIC_SPLIT,
+        machine_type=DEPLOY_COMPUTE,
+        accelerator_type=DEPLOY_GPU.name,
+        accelerator_count=DEPLOY_NGPU,
+        min_replica_count=MIN_NODES,
+        max_replica_count=MAX_NODES,
+    )
+else:
+    endpoint = model.deploy(
+        deployed_model_display_name=DEPLOYED_NAME,
+        traffic_split=TRAFFIC_SPLIT,
+        machine_type=DEPLOY_COMPUTE,
+        accelerator_type=None,
+        accelerator_count=0,
+        min_replica_count=MIN_NODES,
+        max_replica_count=MAX_NODES,
+    )
+
+
+
+
+
+### Task 6. Query deployed model on Vertex Online Prediction Endpoint
+# Fill out the #TODO section to generate online predictions using your Vertex Endpoint. 
+	# TODO: use your Endpoint to return prediction for your x_test.
+	predictions = endpoint.predict(instances=x_test.tolist())
+# Endpoint queried successfully
+
+
+# Make an online prediction request
+import tensorflow_datasets as tfds
+import numpy as np
+tfds.disable_progress_bar()
+
+datasets, info = tfds.load('fashion_mnist', batch_size=-1, with_info=True, as_supervised=True)
+test_dataset = datasets['test']
+
+
+x_test, y_test = tfds.as_numpy(test_dataset)
+# Normalize (rescale) the pixel data by dividing each pixel by 255. 
+x_test = x_test.astype('float32') / 255.
+
+x_test.shape, y_test.shape
+
+
+#@title Pick the number of test images
+NUM_TEST_IMAGES = 20 #@param {type:"slider", min:1, max:20, step:1}
+x_test, y_test = x_test[:NUM_TEST_IMAGES], y_test[:NUM_TEST_IMAGES]
+
+
+# Send the prediction request
+predictions = endpoint.predict(instances=x_test.tolist())
+y_predicted = np.argmax(predictions.predictions, axis=1)
+
+correct = sum(y_predicted == np.array(y_test.tolist()))
+total = len(y_predicted)
+print(
+    f"Correct predictions = {correct}, Total predictions = {total}, Accuracy = {correct/total}"
+)
+
+
+
+
+
+#########
+
+import os
+! pip3 install --user --upgrade google-cloud-aiplatform
+! pip3 install --user --upgrade google-cloud-storage
+! pip3 install --user --upgrade google-cloud-logging
+
+! pip3 install --user protobuf==3.19.*
+! pip3 install --user --upgrade pillow
+! pip3 install --user --upgrade numpy
+
+#Restart the kernel
+import os
+
+if not os.getenv("IS_TESTING"):
+    # Automatically restart kernel after installs
+    import IPython
+​
+    app = IPython.Application.instance()
+    app.kernel.do_shutdown(True)
+
+
+
+import os
+​
+# Retrieve and set PROJECT_ID environment variables.
+# TODO: fill in PROJECT_ID.
+​
+if not os.getenv("IS_TESTING"):
+    # Get your Google Cloud project ID from gcloud
+    PROJECT_ID = "qwiklabs-gcp-01-98863cc86067"
+PROJECT_ID
+
+
+
+from datetime import datetime
+TIMESTAMP = datetime.now().strftime("%Y%m%d%H%M%S")
+
+
+
+# Cloud Storage bucket
+
+REGION = "us-east4"  # @param {type:"string"}
+REGION = "us-east4"  # @param {type:"string"}
+# TODO: Create a globally unique Google Cloud Storage bucket name for artifact storage.
+# HINT: Start the name with gs://
+BUCKET_NAME = "gs://qwiklabs-gcp-01-98863cc86067"
+! gsutil mb -l $REGION $BUCKET_NAME
+
+
+
+#Set up variables
+import os
+import sys
+
+from google.cloud import aiplatform
+from google.cloud.aiplatform import gapic as aip
+
+aiplatform.init(project=PROJECT_ID, location=REGION, staging_bucket=BUCKET_NAME)
+
+
+
+TRAIN_GPU, TRAIN_NGPU = (None, None)
+DEPLOY_GPU, DEPLOY_NGPU = (None, None)
+
+
+
+TRAIN_VERSION = "tf-cpu.2-8"
+DEPLOY_VERSION = "tf2-cpu.2-8"
+
+TRAIN_IMAGE = "us-docker.pkg.dev/vertex-ai/training/{}:latest".format(TRAIN_VERSION)
+DEPLOY_IMAGE = "us-docker.pkg.dev/vertex-ai/prediction/{}:latest".format(DEPLOY_VERSION)
+
+print("Training:", TRAIN_IMAGE, TRAIN_GPU, TRAIN_NGPU)
+print("Deployment:", DEPLOY_IMAGE, DEPLOY_GPU, DEPLOY_NGPU)
+
+
+MACHINE_TYPE = "n1-standard"
+
+VCPU = "4"
+TRAIN_COMPUTE = MACHINE_TYPE + "-" + VCPU
+print("Train machine type", TRAIN_COMPUTE)
+
+MACHINE_TYPE = "n1-standard"
+
+VCPU = "4"
+DEPLOY_COMPUTE = MACHINE_TYPE + "-" + VCPU
+print("Deploy machine type", DEPLOY_COMPUTE)
+
+
+
+# Training script
+%%writefile task.py
+# Training kmnist using CNN
+
+import tensorflow_datasets as tfds
+import tensorflow as tf
+from tensorflow.python.client import device_lib
+import argparse
+import os
+import sys
+tfds.disable_progress_bar()
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--epochs', dest='epochs',
+                    default=10, type=int,
+                    help='Number of epochs.')
+
+args = parser.parse_args()
+
+print('Python Version = {}'.format(sys.version))
+print('TensorFlow Version = {}'.format(tf.__version__))
+print('TF_CONFIG = {}'.format(os.environ.get('TF_CONFIG', 'Not found')))
+print('DEVICES', device_lib.list_local_devices())
+
+# Define batch size
+BATCH_SIZE = 32
+
+# Load the dataset
+datasets, info = tfds.load('kmnist', with_info=True, as_supervised=True)
+
+# Normalize and batch process the dataset
+ds_train = datasets['train'].map(lambda x, y: (tf.cast(x, tf.float32)/255.0, y)).batch(BATCH_SIZE)
+
+
+# Build the Convolutional Neural Network
+model = tf.keras.models.Sequential([                               
+      tf.keras.layers.Conv2D(16, (3,3), activation=tf.nn.relu, input_shape=(28, 28, 1), padding = "same"),
+      tf.keras.layers.MaxPooling2D(2,2),
+      tf.keras.layers.Conv2D(16, (3,3), activation=tf.nn.relu, padding = "same"),
+      tf.keras.layers.MaxPooling2D(2,2),
+      tf.keras.layers.Flatten(),
+      tf.keras.layers.Dense(128, activation=tf.nn.relu),
+      # TODO: Write the last layer.
+      # Hint: KMNIST has 10 output classes.
+      tf.keras.layers.Dense(10, activation=tf.nn.softmax)
+    
+      
+    ])
+
+model.compile(optimizer = tf.keras.optimizers.Adam(),
+      loss = tf.keras.losses.SparseCategoricalCrossentropy(),
+      metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
+
+
+
+# Train and save the model
+
+MODEL_DIR = os.getenv("AIP_MODEL_DIR")
+
+model.fit(ds_train, epochs=args.epochs)
+
+# TODO: Save your CNN classifier. 
+# Hint: Save it to MODEL_DIR.
+model.save(MODEL_DIR)
+
+
+JOB_NAME = "custom_job_" + TIMESTAMP
+MODEL_DIR = "{}/{}".format(BUCKET_NAME, JOB_NAME)
+
+EPOCHS = 5
+
+CMDARGS = [
+    "--epochs=" + str(EPOCHS),
+]
+
+
+
+# Train the model
+job = aiplatform.CustomTrainingJob(
+    display_name=JOB_NAME,
+    requirements=["tensorflow_datasets==4.6.0"],
+    # TODO: fill in the remaining arguments for the CustomTrainingJob function.
+    script_path="task.py",
+    container_uri=TRAIN_IMAGE,
+    model_serving_container_image_uri=DEPLOY_IMAGE,
+    
+)
+
+MODEL_DISPLAY_NAME = "kmnist-" + TIMESTAMP
+
+# Start the training
+model = job.run(
+    model_display_name=MODEL_DISPLAY_NAME,
+    replica_count=1,
+    accelerator_count=0,
+    # TODO: fill in the remaining arguments to run the custom training job function.
+    args=CMDARGS,
+    machine_type=TRAIN_COMPUTE,
+)
+
+# can take around 8-10 minutes
+
+
+
+# Deploy the model
+DEPLOYED_NAME = "kmnist_deployed-" + TIMESTAMP
+
+TRAFFIC_SPLIT = {"0": 100}
+
+MIN_NODES = 1
+MAX_NODES = 1
+
+endpoint = model.deploy(
+        deployed_model_display_name=DEPLOYED_NAME,
+        accelerator_type=None,
+        accelerator_count=0,
+        # TODO: fill in the remaining arguments to deploy the model to an endpoint.
+        traffic_split=TRAFFIC_SPLIT,
+        machine_type=DEPLOY_COMPUTE,
+        min_replica_count=MIN_NODES,
+        max_replica_count=MAX_NODES
+    )
+
+# can take around 10-15 minutes to deploy the model.
+
+
+# Make an online prediction request
+
+import tensorflow_datasets as tfds
+import numpy as np
+​
+tfds.disable_progress_bar()
+datasets, info = tfds.load('kmnist', batch_size=-1, with_info=True, as_supervised=True)
+​
+test_dataset = datasets['test']
+x_test, y_test = tfds.as_numpy(test_dataset)
+​
+# Normalize (rescale) the pixel data by dividing each pixel by 255. 
+x_test = x_test.astype('float32') / 255.
+x_test.shape, y_test.shape
+
+#@title Pick the number of test images
+NUM_TEST_IMAGES = 20 #@param {type:"slider", min:1, max:20, step:1}
+x_test, y_test = x_test[:NUM_TEST_IMAGES], y_test[:NUM_TEST_IMAGES]
+
+
+
+# Send the prediction request
+# Import and configure logging
+from google.cloud import logging
+logging_client = logging.Client()
+logger = logging_client.logger('challenge-notebook')
+
+# TODO: use your Endpoint to return prediction for your x_test.
+​predictions = endpoint.predict(instances=x_test.tolist())
+​
+y_predicted = np.argmax(predictions.predictions, axis=1)
+​
+correct = sum(y_predicted == np.array(y_test.tolist()))
+total = len(y_predicted)
+​
+logger.log_text(str(correct/total))
+​
+print(
+    f"Correct predictions = {correct}, Total predictions = {total}, Accuracy = {correct/total}"
+)
