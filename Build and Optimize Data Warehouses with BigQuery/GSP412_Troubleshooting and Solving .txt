@@ -1,0 +1,348 @@
+GSP412_Troubleshooting and Solving Data Join Pitfalls
+
+Overview
+BigQuery is Google's fully managed, NoOps, low cost analytics database. With BigQuery you can query terabytes and terabytes of data without having any infrastructure to manage or needing a database administrator. BigQuery uses SQL and can take advantage of the pay-as-you-go model. BigQuery allows you to focus on analyzing data to find meaningful insights.
+Joining data tables can provide meaningful insight into your dataset. However, when you join your data there are common pitfalls that could corrupt your results. This lab focuses on avoiding those pitfalls. Types of joins:
+
+
+Cross join: combines each row of the first dataset with each row of the second dataset, where every combination is represented in the output.
+Inner join: requires that key values exist in both tables for the records to appear in the results table. Records appear in the merge only if there are matches in both tables for the key values.
+Left join: Each row in the left table appears in the results, regardless of whether there are matches in the right table.
+Right join: the reverse of a left join. Each row in the right table appears in the results, regardless of whether there are matches in the left table.
+For more information about joins, refer to the Join Page.
+
+
+# In the Google Cloud Console, select Navigation menu > BigQuery.
+# The Welcome message box opens. This message box provides a link to the quickstart guide and the release notes.
+# Click Done.
+
+
+# Task 1. Create a new dataset to store your tables
+# Click the three dots next to your Project ID and select Create dataset.
+# create a new dataset titled ecommerce.
+# Set the dataset ID to ecommerce.
+# Leave the other options at their default values, and click Create dataset.
+# In the left pane, you see an ecommerce table listed under your project.
+ 
+
+# Task 2. Pin the lab project in BigQuery
+# The project with the new dataset is data-to-insights.
+# Navigation menu Navigation menu icon > BigQuery.
+# The Welcome message box opens. This message box provides a link to the quickstart guide and the release notes.
+# Click Done.
+# To open the public datasets project, copy data-to-insights.
+# Click + Add > Star a project by name then paste the data-to-insights name.
+# Click Star.
+# The data-to-insights project is listed in the Explorer section.
+
+
+# Task 3. Examine the fields
+# In the left pane in the Resources section, navigate to data-to-insights > ecommerce > all_sessions_raw.
+# On the right, under the Query editor, click the Schema tab to see the Fields and information about each field.
+
+
+# Task 4. Identify a key field in your ecommerce dataset
+# Find how many product names and product SKUs are on the website. Copy and Paste the below query in bigquery EDITOR:
+
+#standardSQL
+# how many products are on the website?
+SELECT DISTINCT
+productSKU,
+v2ProductName
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+
+# Query results with pagination highlighted
+
+
+# Clear the previous query and run the below query to list the number of distinct SKUs are listed using DISTINCT:
+
+#standardSQL
+# find the count of unique SKUs
+SELECT
+DISTINCT
+productSKU
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+
+
+
+# Examine the relationship between SKU & Name
+# Now determine which products have more than one SKU and which SKUs have more than one Product Name.
+# Clear the previous query and run the below query to determine if some product names have more than one SKU. The use of the STRING_AGG() function to 
+#aggregate all the product SKUs that are associated with one product name into comma separated values.
+
+SELECT
+  v2ProductName,
+  COUNT(DISTINCT productSKU) AS SKU_count,
+  STRING_AGG(DISTINCT productSKU LIMIT 5) AS SKU
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+  WHERE productSKU IS NOT NULL
+  GROUP BY v2ProductName
+  HAVING SKU_count > 1
+  ORDER BY SKU_count DESC
+
+
+
+
+
+
+
+# Clear the previous query and run the below query to find out:
+
+SELECT
+  productSKU,
+  COUNT(DISTINCT v2ProductName) AS product_count,
+  STRING_AGG(DISTINCT v2ProductName LIMIT 5) AS product_name
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+  WHERE v2ProductName IS NOT NULL
+  GROUP BY productSKU
+  HAVING product_count > 1
+  ORDER BY product_count DESC
+
+
+# Note: Try replacing STRING_AGG() with ARRAY_AGG() instead. Pretty cool, right? BigQuery natively supports nested array values. 
+#You can learn more from the Work with arrays guide.
+
+
+# Task 5. Pitfall: non-unique key
+# In inventory tracking, a SKU is designed to uniquely identify one and only one product. For us, it will be the basis of your JOIN condition
+# when you lookup information from other tables. Having a non-unique key can cause serious data issues as you will see.
+# Write a query to identify all the product names for the SKU 'GGOEGPJC019099'.
+# Possible solution:
+
+SELECT DISTINCT
+  v2ProductName,
+  productSKU
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+WHERE productSKU = 'GGOEGPJC019099'
+
+
+
+
+## Joining website data against your product inventory list
+# Now see the impact of joining on a dataset with multiple products for a single SKU. First explore the product inventory dataset 
+# (the products table) to see if this SKU is unique there.
+
+SELECT
+  SKU,
+  name,
+  stockLevel
+FROM `data-to-insights.ecommerce.products`
+WHERE SKU = 'GGOEGPJC019099'
+
+
+
+## Join pitfall: Unintentional many-to-one SKU relationship
+#You now have two datasets: one for inventory stock level and the other for our website analytics. JOIN the inventory dataset against your
+#  website product names and SKUs so you can have the inventory stock level associated with each product for sale on the website.
+
+SELECT DISTINCT
+  website.v2ProductName,
+  website.productSKU,
+  inventory.stockLevel
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+JOIN `data-to-insights.ecommerce.products` AS inventory
+  ON website.productSKU = inventory.SKU
+  WHERE productSKU = 'GGOEGPJC019099'
+
+
+# Next, 
+
+WITH inventory_per_sku AS (
+  SELECT DISTINCT
+    website.v2ProductName,
+    website.productSKU,
+    inventory.stockLevel
+  FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+  JOIN `data-to-insights.ecommerce.products` AS inventory
+    ON website.productSKU = inventory.SKU
+    WHERE productSKU = 'GGOEGPJC019099'
+)
+
+SELECT
+  productSKU,
+  SUM(stockLevel) AS total_inventory
+FROM inventory_per_sku
+GROUP BY productSKU
+
+
+
+## Pitfall: non-unique key
+# Task 6. Join pitfall solution: use distinct SKUs before joining
+# What are the options to solve your triple counting dilemma? First you need to only select distinct SKUs from the website before joining on other datasets.
+
+# Gather all the possible names into an array:
+
+SELECT
+  productSKU,
+  ARRAY_AGG(DISTINCT v2ProductName) AS push_all_names_into_array
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+WHERE productSKU = 'GGOEGAAX0098'
+GROUP BY productSKU
+
+# Now instead of having a row for every Product Name, you only have a row for each unique SKU.
+# If you wanted to deduplicate the product names, you could even LIMIT the array like so:
+
+SELECT
+  productSKU,
+  ARRAY_AGG(DISTINCT v2ProductName LIMIT 1) AS push_all_names_into_array
+FROM `data-to-insights.ecommerce.all_sessions_raw`
+WHERE productSKU = 'GGOEGAAX0098'
+GROUP BY productSKU
+
+## Join pitfall: losing data records after a join
+# Now you're ready to join against your product inventory dataset again.
+
+
+#standardSQL
+SELECT DISTINCT
+website.productSKU
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+
+
+# It seems 819 SKUs were lost after joining the datasets Investigate by adding more specificity in your fields (one SKU column from each dataset):
+
+#standardSQL
+# pull ID fields from both tables
+SELECT DISTINCT
+website.productSKU AS website_SKU,
+inventory.SKU AS inventory_SKU
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+
+
+## Join pitfall solution: selecting the correct join type and filtering for NULL
+# The default JOIN type is an INNER JOIN which returns records only if there is a SKU match on both the left and the right tables that are joined.
+# Rewrite the previous query to use a different join type : INNER JOIN, LEFT JOIN, RIGHT JOIN, FULL JOIN, CROSS JOIN.
+# Possible solution:
+
+#standardSQL
+# the secret is in the JOIN type
+# pull ID fields from both tables
+SELECT DISTINCT
+website.productSKU AS website_SKU,
+inventory.SKU AS inventory_SKU
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+LEFT JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+
+
+# Write a query to filter on NULL values from the inventory table.
+# Possible solution:
+
+#standardSQL
+# find product SKUs in website table but not in product inventory table
+SELECT DISTINCT
+website.productSKU AS website_SKU,
+inventory.SKU AS inventory_SKU
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+LEFT JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+WHERE inventory.SKU IS NULL
+
+
+# run the below query to confirm using one of the specific SKUs from the website dataset:
+
+#standardSQL
+# you can even pick one and confirm
+SELECT * FROM `data-to-insights.ecommerce.products`
+WHERE SKU = 'GGOEGATJ060517'
+# query returns zero results
+
+
+# Write a query using a different join type to investigate.
+# Possible solution:
+
+#standardSQL
+# reverse the join
+# find records in website but not in inventory
+SELECT DISTINCT
+website.productSKU AS website_SKU,
+inventory.SKU AS inventory_SKU
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+RIGHT JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+WHERE website.productSKU IS NULL
+
+
+# add more fields from the product inventory dataset for more details.
+
+#standardSQL
+# what are these products?
+# add more fields in the SELECT STATEMENT
+SELECT DISTINCT
+website.productSKU AS website_SKU,
+inventory.*
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+RIGHT JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+WHERE website.productSKU IS NULL
+
+
+# What if you wanted one query that listed all products missing from either the website or inventory?
+# Possible solution:
+
+#standardSQL
+SELECT DISTINCT
+website.productSKU AS website_SKU,
+inventory.SKU AS inventory_SKU
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+FULL JOIN `data-to-insights.ecommerce.products` AS inventory
+ON website.productSKU = inventory.SKU
+WHERE website.productSKU IS NULL OR inventory.SKU IS NULL
+
+
+# Join pitfall: unintentional cross join
+# Create a new table with a site-wide discount percent that you want applied across products in the Clearance category.
+
+#standardSQL
+CREATE OR REPLACE TABLE ecommerce.site_wide_promotion AS
+SELECT .05 AS discount;
+
+
+# run the below query to find out how many products are in clearance:
+
+SELECT DISTINCT
+productSKU,
+v2ProductCategory,
+discount
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+CROSS JOIN ecommerce.site_wide_promotion
+WHERE v2ProductCategory LIKE '%Clearance%'
+
+# See the impact of unintentionally adding more than one record in the discount table.
+
+INSERT INTO ecommerce.site_wide_promotion (discount)
+VALUES (.04),
+       (.03);
+
+# view the data values in the promotion table.
+
+SELECT discount FROM ecommerce.site_wide_promotion
+
+# What happens when you apply the discount again across all 82 clearance products?
+
+SELECT DISTINCT
+productSKU,
+v2ProductCategory,
+discount
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+CROSS JOIN ecommerce.site_wide_promotion
+WHERE v2ProductCategory LIKE '%Clearance%'
+
+
+# Now investigate the underlying cause by examining one product SKU.
+
+#standardSQL
+SELECT DISTINCT
+productSKU,
+v2ProductCategory,
+discount
+FROM `data-to-insights.ecommerce.all_sessions_raw` AS website
+CROSS JOIN ecommerce.site_wide_promotion
+WHERE v2ProductCategory LIKE '%Clearance%'
+AND productSKU = 'GGOEGOLC013299'
+
+
