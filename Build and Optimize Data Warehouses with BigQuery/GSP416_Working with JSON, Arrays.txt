@@ -1,0 +1,328 @@
+GSP416_Working with JSON, Arrays, and Structs in BigQuery
+
+
+# In the Google Cloud Console, select Navigation menu > BigQuery.
+# The Welcome message box opens. This message box provides a link to the quickstart guide and the release notes.
+# Click Done
+
+
+# Task 1. Create a new dataset to store the tables
+# click the three dots next to your Project ID and select Create dataset:
+# Name the new dataset fruit_store. Leave the other options at their default values (Data Location, Default Expiration).
+# Click Create dataset.
+
+
+# Task 2. Practice working with arrays in SQL
+
+#standardSQL
+SELECT
+['raspberry', 'blackberry', 'strawberry', 'cherry'] AS fruit_array
+
+
+
+#standardSQL
+SELECT
+['raspberry', 'blackberry', 'strawberry', 'cherry', 1234567] AS fruit_array
+
+
+#final:
+
+#standardSQL
+SELECT person, fruit_array, total_cost FROM `data-to-insights.advanced.fruit_store`;
+
+
+# After viewing the results, click the JSON tab to view the nested structure of the results.
+
+
+## Loading semi-structured JSON into BigQuery
+# What if you had a JSON file that you needed to ingest into BigQuery?
+# Create a new table fruit_details in the dataset.
+# Click on fruit_store dataset.
+# Now you will see the Create Table option.
+
+# Add the following details for the table:
+# Source: Choose Google Cloud Storage in the Create table from dropdown.
+# Select file from Cloud Storage bucket: data-insights-course/labs/optimizing-for-performance/shopping_cart.json
+# File format: JSONL (Newline delimited JSON)
+# Call the new table fruit_details.
+# Check the checkbox of Schema (Auto detect).
+# Click Create table.
+
+
+
+## Task 3. Create your own arrays with ARRAY_AGG()
+# Don't have arrays in your tables already? You can create them!
+
+SELECT
+  fullVisitorId,
+  date,
+  v2ProductName,
+  pageTitle
+  FROM `data-to-insights.ecommerce.all_sessions`
+WHERE visitId = 1501570398
+ORDER BY date
+
+# use the ARRAY_AGG() function to aggregate our string values into an array
+
+SELECT
+  fullVisitorId,
+  date,
+  ARRAY_AGG(v2ProductName) AS products_viewed,
+  ARRAY_AGG(pageTitle) AS pages_viewed
+  FROM `data-to-insights.ecommerce.all_sessions`
+WHERE visitId = 1501570398
+GROUP BY fullVisitorId, date
+ORDER BY date
+
+
+# use the ARRAY_LENGTH() function to count the number of pages and products that were viewed:
+
+SELECT
+  fullVisitorId,
+  date,
+  ARRAY_AGG(v2ProductName) AS products_viewed,
+  ARRAY_LENGTH(ARRAY_AGG(v2ProductName)) AS num_products_viewed,
+  ARRAY_AGG(pageTitle) AS pages_viewed,
+  ARRAY_LENGTH(ARRAY_AGG(pageTitle)) AS num_pages_viewed
+  FROM `data-to-insights.ecommerce.all_sessions`
+WHERE visitId = 1501570398
+GROUP BY fullVisitorId, date
+ORDER BY date
+
+
+# deduplicate the pages and products so you can see how many unique products were viewed by adding DISTINCT to ARRAY_AGG():
+
+SELECT
+  fullVisitorId,
+  date,
+  ARRAY_AGG(DISTINCT v2ProductName) AS products_viewed,
+  ARRAY_LENGTH(ARRAY_AGG(DISTINCT v2ProductName)) AS distinct_products_viewed,
+  ARRAY_AGG(DISTINCT pageTitle) AS pages_viewed,
+  ARRAY_LENGTH(ARRAY_AGG(DISTINCT pageTitle)) AS distinct_pages_viewed
+  FROM `data-to-insights.ecommerce.all_sessions`
+WHERE visitId = 1501570398
+GROUP BY fullVisitorId, date
+ORDER BY date
+
+
+## Task 4. Query tables containing arrays
+# paste the below query to explore the available data and see if you can find fields with repeated values (arrays):
+
+SELECT
+  *
+FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`
+WHERE visitId = 1501570398
+
+# Scroll right in the results until you see the hits.product.v2ProductName field (multiple field aliases are discussed shortly).
+# Try to query just the visit and page name fields like before:
+
+SELECT
+  visitId,
+  hits.page.pageTitle
+FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`
+WHERE visitId = 1501570398
+
+
+#Use the UNNEST() function on your array field:
+
+SELECT DISTINCT
+  visitId,
+  h.page.pageTitle
+FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`,
+UNNEST(hits) AS h
+WHERE visitId = 1501570398
+LIMIT 10
+
+
+## Task 5. Introduction to STRUCTs
+# Explore a dataset with STRUCTs
+# click +ADD and then select Star a project by name and enter the name bigquery-public-data
+# Click Star.
+# The bigquery-public-data project is listed in the Explorer section.
+# Open bigquery-public-data.
+# Find and open google_analytics_sample dataset.
+# Click the ga_sessions(366)_ table.
+
+
+# The main advantage of having 32 STRUCTs in a single table is it allows you to run queries like this one without having to do any JOINs:
+
+SELECT
+  visitId,
+  totals.*,
+  device.*
+FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`
+WHERE visitId = 1501570398
+LIMIT 10
+
+
+## Task 6. Practice with STRUCTs and arrays
+
+#standardSQL
+SELECT STRUCT("Rudisha" as name, 23.4 as split) as runner
+
+
+#standardSQL
+SELECT STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits) AS runner
+
+
+## Practice ingesting JSON data
+#Create a new dataset titled racing.
+# Click on racing dataset and click Create table.
+
+# Source: select Google Cloud Storage under Create table from dropdown.
+# Select file from Cloud Storage bucket: data-insights-course/labs/optimizing-for-performance/race_results.json
+# File format: JSONL (Newline delimited JSON)
+# In Schema, click on Edit as text slider and add the following:
+
+[
+    {
+        "name": "race",
+        "type": "STRING",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "participants",
+        "type": "RECORD",
+        "mode": "REPEATED",
+        "fields": [
+            {
+                "name": "name",
+                "type": "STRING",
+                "mode": "NULLABLE"
+            },
+            {
+                "name": "splits",
+                "type": "FLOAT",
+                "mode": "REPEATED"
+            }
+        ]
+    }
+]
+
+
+# Call the new table race_results.
+# Click Create table.
+# After the load job is successful, preview the schema for the newly created table:
+
+
+# ractice querying nested and repeated fields
+# Let's see all of our racers for the 800 Meter race:
+
+#standardSQL
+SELECT * FROM racing.race_results
+
+
+## What if you wanted to list the name of each runner and the type of race?
+
+#standardSQL
+SELECT race, participants.name
+FROM racing.race_results
+
+
+#standardSQL
+SELECT race, participants.name
+FROM racing.race_results
+CROSS JOIN
+participants  # this is the STRUCT (it is like a table within a table)
+
+
+## Add the dataset name to the query:
+
+#standardSQL
+SELECT race, participants.name
+FROM racing.race_results
+CROSS JOIN
+race_results.participants # full STRUCT name
+
+
+## You can simplify the last query by:
+#Adding an alias for the original table
+#Replacing the words "CROSS JOIN" with a comma (a comma implicitly cross joins)
+#This will give you the same query result:
+
+#standardSQL
+SELECT race, participants.name
+FROM racing.race_results AS r, r.participants
+
+
+## Task 7. Lab question: STRUCT()
+# Answer the below questions using the racing.race_results table you created previously.
+
+#Task: Write a query to COUNT how many racers were there in total.
+# To start, use the below partially written query:
+
+#standardSQL
+SELECT COUNT(participants.name) AS racer_count
+FROM racing.race_results
+
+#Possible solution:
+
+#standardSQL
+SELECT COUNT(p.name) AS racer_count
+FROM racing.race_results AS r, UNNEST(r.participants) AS p
+
+
+
+# Task 8. Lab question: Unpacking arrays with UNNEST( )
+# Write a query that will list the total race time for racers whose names begin with R. 
+# Order the results with the fastest total time first. 
+#Use the UNNEST() operator and start with the partially written query below.
+
+# Complete the query:
+
+#standardSQL
+SELECT
+  p.name,
+  SUM(split_times) as total_race_time
+FROM racing.race_results AS r
+, r.participants AS p
+, p.splits AS split_times
+WHERE
+GROUP BY
+ORDER BY
+;
+
+
+# Possible solution:
+
+#standardSQL
+SELECT
+  p.name,
+  SUM(split_times) as total_race_time
+FROM racing.race_results AS r
+, UNNEST(r.participants) AS p
+, UNNEST(p.splits) AS split_times
+WHERE p.name LIKE 'R%'
+GROUP BY p.name
+ORDER BY total_race_time ASC;
+
+
+# Task 9. Filter within array values
+# You happened to see that the fastest lap time recorded for the 800 M race was 23.2 seconds, 
+# but you did not see which runner ran that particular lap. Create a query that returns that result.
+# Complete the partially written query:
+
+#standardSQL
+SELECT
+  p.name,
+  split_time
+FROM racing.race_results AS r
+, r.participants AS p
+, p.splits AS split_time
+WHERE split_time = ;
+
+
+# Possible solution:
+
+#standardSQL
+SELECT
+  p.name,
+  split_time
+FROM racing.race_results AS r
+, UNNEST(r.participants) AS p
+, UNNEST(p.splits) AS split_time
+WHERE split_time = 23.2;
+
+
+
+Congratulations!
