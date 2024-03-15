@@ -1,0 +1,217 @@
+GSP340_Build and Optimize Data Warehouses with BigQuery: Challenge Lab
+
+
+# Challenge scenario
+# You are part of an international public health organization which is tasked with developing a machine 
+# learning model to predict the daily case count for countries during the Covid-19 pandemic.
+# As a junior member of the Data Science team you've been assigned to use your data warehousing skills
+# to develop a table containing the features for the machine learning model.
+#You are expected to have the skills and knowledge for this task, so don't expect step-by-step guides to be provided.
+
+# Note: You've been assigned random tasks from the set of tasks. Please reference this Form ID: 
+# Form id and respective Task Number while reporting any issues, requesting assistance with these tasks or providing any feedback.
+
+
+### Form ID: form-1
+
+### Task 1
+#  Create a table partitioned by date
+# Create a new dataset covid and create a table oxford_policy_tracker in that dataset partitioned by date, with an expiry of 1080 days. 
+# The table should initially use the schema defined for the oxford_policy_tracker table in the COVID 19 Government Response public dataset .
+# You must also populate the table with the data from the source table for all countries and exclude the United Kingdom (GBR),
+# Brazil (BRA), Canada (CAN) and the United States (USA) as instructed above.
+
+
+CREATE OR REPLACE TABLE covid.oxford_policy_tracker
+PARTITION BY date
+OPTIONS(
+  partition_expiration_days=1080
+) AS
+SELECT *
+FROM `bigquery-public-data.covid19_govt_response.oxford_policy_tracker`
+WHERE alpha_3_code NOT IN ('GBR','BRA','CAN','USA');
+
+
+
+
+### Task 2
+# Add new columns to global_mobility_tracker_data table
+# In this step you need to add columns for population, country_area and a record column (named mobility) that 
+# will take six input fields representing average mobility data from the last six columns of the 
+# mobility_report table from the Google COVID 19 Mobility public dataset.
+# It is important to follow the column names and data types that have been specified when updating the 
+# schema for the table provided in the task description.
+# The dataset named 'covid_data' contains a table named global_mobility_tracker_data in which update the 
+# table to add new columns with the appropriate data types to ensure alignment with the specification provided to you:
+
+New Column Name	SQL Data Type
+population	INTEGER
+country_area	FLOAT
+mobility	RECORD
+mobility.avg_retail	FLOAT
+mobility.avg_grocery	FLOAT
+mobility.avg_parks	FLOAT
+mobility.avg_transit	FLOAT
+mobility.avg_workplace	FLOAT
+mobility.avg_residential	FLOAT
+
+
+
+ALTER TABLE covid_data.oxford_policy_tracker
+ADD COLUMN population INT64,
+ADD COLUMN country_area FLOAT64,
+ADD COLUMN mobility STRUCT<
+   avg_retail      FLOAT64,
+   avg_grocery     FLOAT64,
+   avg_parks       FLOAT64,
+   avg_transit     FLOAT64,
+   avg_workplace   FLOAT64,
+   avg_residential FLOAT64
+>
+
+
+
+
+### Task 3
+# Add country population data to the population column
+
+
+UPDATE
+dataset.table_name t0
+SET
+t0.population = t2.pop_data_2019
+FROM
+(SELECT DISTINCT country_territory_code, pop_data_2019 FROM `bigquery-public-data.covid19_ecdc.covid_19_geographic_distribution_worldwide`) AS t2
+WHERE t0.alpha_3_code = t2.country_territory_code;
+
+#The above template updates a daily new case column so you must modify it before you can use it to
+# populate the population data but the final query will be very similar.
+# The dataset named 'covid_data' contains one table named consolidate_covid_tracker_data in which add
+# the country population data to the population column in 'consolidate_covid_tracker_data' 
+# table with covid_19_geographic_distribution_worldwide table data from the European Center for Disease Control COVID 19 public dataset.
+
+
+CREATE OR REPLACE TABLE covid_data.pop_data_2019 AS
+SELECT
+  country_territory_code,
+  pop_data_2019
+FROM 
+  `bigquery-public-data.covid19_ecdc.covid_19_geographic_distribution_worldwide`
+GROUP BY
+  country_territory_code,
+  pop_data_2019
+ORDER BY
+  country_territory_code;
+
+
+###
+UPDATE
+   `covid_data.oxford_policy_tracker` t0
+SET
+   population = t2.pop_data_2019
+FROM
+   `covid_data.pop_data_2019` t2
+WHERE
+   CONCAT(t0.alpha_3_code) = CONCAT(t2.country_territory_code);
+
+
+
+### Task 4
+# Add country area data to the country_area column
+
+UPDATE
+   `covid_data.consolidate_covid_tracker_data` t0
+SET
+   t0.country_area = t1.country_area
+FROM
+   `bigquery-public-data.census_bureau_international.country_names_area` t1
+WHERE
+   t0.country_name = t1.country_name
+
+
+
+
+
+
+### Task 5 : Populate the mobility record data
+
+UPDATE
+   `<dataset_name>.<table_name>` t0
+SET
+   t0.mobility.avg_retail      = t1.avg_retail,
+   t0.mobility.avg_grocery     = t1.avg_grocery,
+   t0.mobility.avg_parks       = t1.avg_parks,
+   t0.mobility.avg_transit     = t1.avg_transit,
+   t0.mobility.avg_workplace   = t1.avg_workplace,
+   t0.mobility.avg_residential = t1.avg_residential
+FROM
+   ( SELECT country_region, date,
+      AVG(retail_and_recreation_percent_change_from_baseline) as avg_retail,
+      AVG(grocery_and_pharmacy_percent_change_from_baseline)  as avg_grocery,
+      AVG(parks_percent_change_from_baseline) as avg_parks,
+      AVG(transit_stations_percent_change_from_baseline) as avg_transit,
+      AVG(workplaces_percent_change_from_baseline) as avg_workplace,
+      AVG(residential_percent_change_from_baseline)  as avg_residential
+      FROM `bigquery-public-data.covid19_google_mobility.mobility_report`
+      GROUP BY country_region, date
+   ) AS t1
+WHERE
+   CONCAT(t0.country_name, t0.date) = CONCAT(t1.country_region, t1.date)
+
+
+
+
+### Task 6 : Query missing data in population & country_area columns
+
+SELECT country_name, population
+FROM `<dataset_name>.<table_name>`
+WHERE population is NULL
+
+
+SELECT country_name, country_area
+FROM `<dataset_name>.<table_name>`
+WHERE country_area IS NULL
+
+
+SELECT DISTINCT country_name
+FROM `<dataset_name>.<table_name>`
+WHERE population is NULL
+UNION ALL
+SELECT DISTINCT country_name
+FROM `<dataset_name>.<table_name>`
+WHERE country_area IS NULL
+ORDER BY country_name ASC
+
+
+
+
+# Tips and tricks
+
+# Tip 1. Remember that if you are instructed to create table you must exclude the
+# United Kingdom (GBR), Brazil (BRA), Canada (CAN) and the United States (USA) data.
+
+# Tip 2. If you are updating the schema for a BigQuery table you can use the console to 
+# add the columns and record elements or you can use the command line bqutility to update the schema 
+# by providing a JSON file with all of field definitions as explained in the BigQuery Standard SQL reference documentation.
+
+# Tip 3. The covid19_ecdc table in the European Center for Disease Control COVID 19 public dataset contains a population column
+# that you can use if you are populating the populationcolumn based on your task description.
+
+# Tip 4. The country_names_area table from the Census Bureau International public dataset does not contain a three letter country code column,
+# but you can join it to table provided in task description using the full text country_name column that exists in both tables.
+
+# Tip 5. If you are updating the mobility record remember that you must select (and average) a number of records
+# for each country and date combination so that you get a single average of each child column in the mobility record.
+# You must join the resulting data to your working table using the same combination of country name and date
+# that you used to group the source mobility records to ensure there is a unique mapping between the
+# averaged source mobility table results and the records in your table that have a single entry for each country and date combination.
+
+# TIP 6. The UNION option followed by the ALL keyword combines the results of two queries where each query lists
+# distinct results without combining duplicate results that arise from the union into a single row.
+
+
+
+
+Congratulations!
+
+
