@@ -1,0 +1,81 @@
+Overview
+The Google Cloud Speech-to-Text API enables easy integration of Google speech recognition technologies into developer applications. The Speech-to-Text API allows you to send audio and receive a text transcription from the service.
+
+
+
+###
+Task 1. Create an API key
+To create an API key, click Navigation menu > APIs & services > Credentials.
+Then click Create credentials.
+In the drop down menu, select API key.
+Copy the key you just generated and click Close.
+
+Create an API Key
+In the Navigation menu, select Compute Engine. You should see a linux-instance listed in the VM instances window.
+Click on the SSH button in line with the linux-instance. You will be brought to an interactive shell.
+In the command line, enter in the following, replacing <YOUR_API_KEY> with the API key you copied from previously generated:
+export API_KEY=<YOUR_API_KEY>
+
+
+
+###
+Task 2. Create your Speech-to-Text API request
+Note: You will use a pre-recorded file that's available on Cloud Storage: gs://cloud-samples-tests/speech/brooklyn.flac. Listen to the audio file before sending it to the Speech-to-Text API.
+Create request.json in the SSH command line. You'll use this to build your request to the Speech-to-Text API:
+touch request.json
+
+Open the request.json:
+nano request.json
+
+Note: You can use your preferred command line editor (nano, vim, emacs) or gcloud. This lab will provide instructions for nano.
+Add the following to your request.json file, using the uri value of the sample raw audio file:
+
+{
+  "config": {
+      "encoding":"FLAC",
+      "languageCode": "en-US"
+  },
+  "audio": {
+      "uri":"gs://cloud-samples-tests/speech/brooklyn.flac"
+  }
+}
+
+
+Press control + x and then y to save and click Enter to close the request.json file.
+The request body has a config and audio object.
+
+
+
+###
+Task 3. Call the Speech-to-Text API
+Pass your request body, along with the API key environment variable, to the Speech-to-Text API with the following curl command (all in one single command line):
+
+curl -s -X POST -H "Content-Type: application/json" --data-binary @request.json \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}"
+
+
+Your response should look something like this:
+
+{
+  "results": [
+    {
+      "alternatives": [
+        {
+          "transcript": "how old is the Brooklyn Bridge",
+          "confidence": 0.98267895
+        }
+      ]
+    }
+  ]
+}
+The transcript value will return the Speech-to-Text API's text transcription of your audio file, and the confidence value indicates how sure the API is that it has accurately transcribed your audio.
+
+
+Run the following command to save the response in a result.json file:
+
+curl -s -X POST -H "Content-Type: application/json" --data-binary @request.json \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" > result.json
+
+
+Congratulations!
+You used the Speech-to-Text API to retrieve a transcript of an input audio file.
