@@ -1,0 +1,361 @@
+Overview
+The Cloud Natural Language API lets you extract entities from text, perform sentiment and syntactic analysis, and classify text into categories.
+In this lab, you learn how to use the Natural Language API to analyze entities, sentiment, and syntax.
+
+
+
+###
+Task 1. Create an API key
+To create an API key, in the Cloud Console, select Navigation menu > APIs & Services > Credentials.
+Click Create credentials and select API key.
+Copy the generated API key and click Close.
+Click Check my progress to verify the objective.
+Create an API Key
+
+Click Navigation menu > Compute Engine. You should see the provisioned linux instance, linux-instance, in the VM instances list.
+Click on the SSH button. You will be brought to an interactive shell.
+In the command line, enter in the following, replacing <YOUR_API_KEY> with the key you just copied:
+export API_KEY=AIzaSyByd643MnLCX-RtP9K32zEEZZCoXfOnoYY
+
+
+
+###
+Task 2. Make an entity analysis request
+The first Natural Language API method you use is analyzeEntities.  To try it out the API's entity analysis, use the following sentence:
+Joanne Rowling, who writes under the pen names J. K. Rowling and Robert Galbraith, is a British novelist and screenwriter who wrote the Harry Potter fantasy series.
+You build your request to the Natural Language API in the file, request.json.
+Use nano (a code editor) to create the file request.json:
+nano request.json
+
+Type or paste the following code into request.json:
+
+{
+  "document":{
+    "type":"PLAIN_TEXT",
+    "content":"Joanne Rowling, who writes under the pen names J. K. Rowling and Robert Galbraith, is a British novelist and screenwriter who wrote the Harry Potter fantasy series."
+  },
+  "encodingType":"UTF8"
+}
+
+Press CTRL+X to exit nano, then Y to save the file, then ENTER to confirm.
+
+In the request, you're telling the Natural Language API about the text being sent. Supported type values are PLAIN_TEXT or HTML. In content, you pass the text to send to the Natural Language API for analysis.
+
+
+
+
+###
+Task 3. Call the Natural Language API
+You can now pass your request body, along with the API key environment variable you saved earlier, to the Natural Language API with the following curl command (all in one single command line):
+curl "https://language.googleapis.com/v1/documents:analyzeEntities?key=${API_KEY}" \
+  -s -X POST -H "Content-Type: application/json" --data-binary @request.json > result.json
+
+In order to check the response run:
+cat result.json
+
+
+The beginning of your response should look like this:
+           "content": "Joanne Rowling",
+            "beginOffset": 0
+          },
+          "type": "PROPER"
+        },
+        {
+          "text": {
+            "content": "Rowling",
+            "beginOffset": 53
+          },
+          "type": "PROPER"
+        },
+        {
+          "text": {
+            "content": "novelist",
+            "beginOffset": 96
+          },
+          "type": "COMMON"
+        },
+        {
+          "text": {
+            "content": "Robert Galbraith",
+            "beginOffset": 65
+          },
+          "type": "PROPER"
+        }
+      ]
+    },
+
+    ...
+  ]
+}
+] }
+For each entity in the response, you get the entity type, the associated Wikipedia URL if there is one, the salience, and the indices of where this entity appeared in the text. Salience is a number in the [0,1] range that refers to the centrality of the entity to the text as a whole.
+
+
+
+
+###
+Task 4. Sentiment analysis with the Natural Language API
+Natural Language API also lets you perform sentiment analysis on a block of text. 
+
+nano request.json
+Use nano to replace the code in request.json with the following, and feel free to replace the content below with your own text:
+
+{
+  "document":{
+    "type":"PLAIN_TEXT",
+    "content":"Harry Potter is the best book. I think everyone should read it."
+  },
+  "encodingType": "UTF8"
+}
+
+
+Press CTRL+X to exit nano, then Y to save the file, then ENTER to confirm.
+
+Next you send the request to the API's analyzeSentiment endpoint:
+curl "https://language.googleapis.com/v1/documents:analyzeSentiment?key=${API_KEY}" \
+  -s -X POST -H "Content-Type: application/json" --data-binary @request.json
+
+Your response should look like this:
+{
+  "documentSentiment": {
+    "magnitude": 1.9,
+    "score": 0.9
+  },
+  "language": "en",
+  "sentences": [
+    {
+      "text": {
+        "content": "Harry Potter is the best book.",
+        "beginOffset": 0
+      },
+      "sentiment": {
+        "magnitude": 0.9,
+        "score": 0.9
+      }
+    },
+    {
+      "text": {
+        "content": "I think everyone should read it.",
+        "beginOffset": 31
+      },
+      "sentiment": {
+        "magnitude": 0.9,
+        "score": 0.9
+      }
+    }
+  ]
+}
+
+Note: Don't be alarmed if your scores differ slightly than the example output.
+Notice that you get two types of sentiment values: sentiment for the document as a whole, and sentiment broken down by sentence. The sentiment method returns two values:
+score - is a number from -1.0 to 1.0 indicating how positive or negative the statement is.
+magnitude - is a number ranging from 0 to infinity that represents the weight of sentiment expressed in the statement, regardless of being positive or negative.
+
+
+
+###
+Task 5. Analyzing entity sentiment
+Natural Language API can also break down sentiment by the entities in the text. Use this sentence as an example:
+I liked the sushi but the service was terrible.
+
+nano request.json
+Use nano to update request.json with the sentence below:
+{
+  "document":{
+    "type":"PLAIN_TEXT",
+    "content":"I liked the sushi but the service was terrible."
+  },
+  "encodingType": "UTF8"
+}
+
+
+Press CTRL+X to exit nano, then Y to save the file, then ENTER to confirm.
+
+Then call the analyzeEntitySentiment endpoint with the following curl command:
+curl "https://language.googleapis.com/v1/documents:analyzeEntitySentiment?key=${API_KEY}" \
+  -s -X POST -H "Content-Type: application/json" --data-binary @request.json
+
+In the response you get back two entity objects: one for "sushi" and one for "service". Here's the full JSON response:
+{
+  "entities": [
+    {
+      "name": "sushi",
+      "type": "CONSUMER_GOOD",
+      "metadata": {},
+      "salience": 0.51064336,
+      "mentions": [
+        {
+          "text": {
+            "content": "sushi",
+            "beginOffset": 12
+          },
+          "type": "COMMON",
+          "sentiment": {
+            "magnitude": 0,
+            "score": 0
+          }
+        }
+      ],
+      "sentiment": {
+        "magnitude": 0,
+        "score": 0
+      }
+    },
+    {
+      "name": "service",
+      "type": "OTHER",
+      "metadata": {},
+      "salience": 0.48935664,
+      "mentions": [
+        {
+          "text": {
+            "content": "service",
+            "beginOffset": 26
+          },
+          "type": "COMMON",
+          "sentiment": {
+            "magnitude": 0.7,
+            "score": -0.7
+          }
+        }
+      ],
+      "sentiment": {
+        "magnitude": 0.7,
+        "score": -0.7
+      }
+    }
+  ],
+  "language": "en"
+}
+You can see that the score returned for "sushi" was a neutral score of 0, whereas "service" got a score of -0.7. Cool! You also may notice that there are two sentiment objects returned for each entity. 
+
+
+
+
+###
+Task 6. Analyzing syntax and parts of speech
+Use syntactic analysis, another of the Natural Language API's methods, to dive deeper into the linguistic details of the text. analyzeSyntax extracts linguistic information, breaking up the given text into a series of sentences and tokens (generally, word boundaries), to provide further analysis on those tokens. For each word in the text, the API tells you the word's part of speech (noun, verb, adjective, etc.) and how it relates to other words in the sentence (Is it the root verb? A modifier?).
+
+nano request.json
+Use nano to replace the code in request.json with the following:
+{
+  "document":{
+    "type":"PLAIN_TEXT",
+    "content": "Joanne Rowling is a British novelist, screenwriter and film producer."
+  },
+  "encodingType": "UTF8"
+}
+
+
+Press CTRL+X to exit nano, then Y to save the file, then ENTER to confirm.
+
+Then call the API's analyzeSyntax method:
+curl "https://language.googleapis.com/v1/documents:analyzeSyntax?key=${API_KEY}" \
+  -s -X POST -H "Content-Type: application/json" --data-binary @request.json
+
+The response should return an object like the one below for each token in the sentence:
+{
+      "text": {
+        "content": "is",
+        "beginOffset": 15
+      },
+      "partOfSpeech": {
+        "tag": "VERB",
+        "aspect": "ASPECT_UNKNOWN",
+        "case": "CASE_UNKNOWN",
+        "form": "FORM_UNKNOWN",
+        "gender": "GENDER_UNKNOWN",
+        "mood": "INDICATIVE",
+        "number": "SINGULAR",
+        "person": "THIRD",
+        "proper": "PROPER_UNKNOWN",
+        "reciprocity": "RECIPROCITY_UNKNOWN",
+        "tense": "PRESENT",
+        "voice": "VOICE_UNKNOWN"
+      },
+      "dependencyEdge": {
+        "headTokenIndex": 2,
+        "label": "ROOT"
+      },
+      "lemma": "be"
+    },
+Let's break down the response:
+partOfSpeech tells you that "Joanne" is a noun.
+dependencyEdge includes data that you can use to create a dependency parse tree of the text. Essentially, this is a diagram showing how words in a sentence relate to each other. A dependency parse tree for the sentence above would look like this:
+
+
+
+
+###
+Task 7. Multilingual natural language processing
+The Natural Language API also supports languages other than English (full list can be found in the Language Support Guide).
+Modify the code in request.json with a sentence in Japanese:
+nano request.json
+
+
+{
+  "document":{
+    "type":"PLAIN_TEXT",
+    "content":"日本のグーグルのオフィスは、東京の六本木ヒルズにあります"
+  }
+}
+
+Press CTRL+X to exit nano, then Y to save the file, then ENTER to confirm.
+
+Next, you send it to the analyzeEntities endpoint:
+curl "https://language.googleapis.com/v1/documents:analyzeEntities?key=${API_KEY}" \
+  -s -X POST -H "Content-Type: application/json" --data-binary @request.json
+
+
+And you get the following response:
+
+{
+  "entities": [
+    {
+      "name": "日本",
+      "type": "LOCATION",
+      "metadata": {
+        "mid": "/m/03_3d",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Japan"
+      },
+      "salience": 0.23854347,
+      "mentions": [
+        {
+          "text": {
+            "content": "日本",
+            "beginOffset": 0
+          },
+          "type": "PROPER"
+        }
+      ]
+    },
+    {
+      "name": "グーグル",
+      "type": "ORGANIZATION",
+      "metadata": {
+        "mid": "/m/045c7b",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Google"
+      },
+      "salience": 0.21155767,
+      "mentions": [
+        {
+          "text": {
+            "content": "グーグル",
+            "beginOffset": 9
+          },
+          "type": "PROPER"
+        }
+      ]
+    },
+    ...
+  ]
+  "language": "ja"
+}
+The wikipedia URLs even point to the Japanese Wikipedia pages - so cool!
+
+
+
+
+Congratulations!
+You've learned how to perform text analysis with the Cloud Natural Language API by extracting entities, analyzing sentiment, and doing syntax annotation. In this lab, you created a Natural Language API request and called the API with curl, extracted entities and ran sentiment analysis on text with the Natural Language API, performed linguistic analysis on text, and created a Natural Language API request in a different language.
+
