@@ -1,0 +1,285 @@
+Overview
+The Document AI API is a document understanding solution that takes unstructured data, such as documents and emails, and makes the data easier to understand, analyze, and consume.
+
+
+
+###
+Activate Cloud Shell
+Click Activate Cloud Shell  at the top of the Google Cloud console.
+	gcloud auth list
+You can list the project ID with this command:
+	gcloud config list project
+
+
+
+###
+Task 1. Create and test a general form processor
+Enable the Cloud Document AI API
+In Cloud Console, from the Navigation menu (), click APIs & services > Library.
+Search for Cloud Document AI API, then click the Enable button to use the API in your Google Cloud project.
+If the Cloud Document AI API is already enabled you will see the Manage button and you can continue with the rest of the lab.
+
+Create a general form processor
+In the console, on the Navigation menu (), click Document AI > Overview.
+Click Explore processor and select Form Parser, which is a type of general processor.
+Specify the processor name as form-parser and select the region US (United States) from the list.
+Click Create to create the general form-parser processor.
+Make a note of the Processor ID as you will need to update variables in JupyterLab notebooks with the Processor ID in later tasks.
+
+
+
+
+
+###
+Task 2. Configure your Vertex AI Notebooks instance to perform Document AI API calls
+In the Cloud Console, on the Navigation menu, click Vertex AI > Workbench.
+Select the User-Managed Notebooks view and click Open Jupyterlab to open the JupyterLab console on your Vertex AI Notebooks instance.
+Click Terminal to open a terminal shell inside the Vertex AI Notebooks instance.
+Enter the following command in the terminal shell to import the lab files into your Vertex AI Notebooks instance:
+	gsutil cp gs://cloud-training/gsp925/*.ipynb .
+
+Enter the following command in the terminal shell to install the Python client libraries required for Document AI and other required libraries:
+	python -m pip install --upgrade google-cloud-core google-cloud-documentai google-cloud-storage prettytable
+
+You should see output indicating that the libraries have been installed successfully.
+Enter the following command in the terminal shell to import the sample health intake form:
+	gsutil cp gs://cloud-training/gsp925/health-intake-form.pdf form.pdf
+
+In the notebook interface open the JupyterLab notebook called documentai-sync.ipynb.
+
+
+
+### not to past this code 
+Task 3. Make a synchronous process document request
+Take a minute to review the Python code in the documentai-sync.ipynb notebook.
+You must replace the processor_id
+The first code block imports the required libraries and initializes some variables.
+from google.cloud import documentai_v1beta3 as documentai
+from google.cloud import storage
+from prettytable import PrettyTable
+
+project_id = %system gcloud config get-value core/project
+project_id = project_id[0]
+location = 'us'
+file_path = 'form.pdf'
+
+The Set your Processor ID code cell sets the Processor ID that you have to manually set before you can process documents with the notebook.
+	processor_id = 'PROCESSOR_ID' # TODO: Replace with a valid Processor ID  
+
+You will need the Document AI processor ID of the processor you created in Task 1 for this step.
+Tip: If you did not save it, then in the Cloud Console tab open the Navigation menu (), click Document AI > My processors, then click the name of your processor to open the details page. From here you can copy the processor ID.
+If the request is successful the document object that is returned will include properties that contain the entities detected in the form.
+def process_document(
+        project_id=project_id, location=location,
+        processor_id=processor_id,  file_path=file_path 
+):
+    # Instantiates a client
+    client = documentai.DocumentProcessorServiceClient()
+    # The full resource name of the processor, e.g.:
+    # projects/project-id/locations/location/processor/processor-id
+    # You must create new processors in the Cloud Console first
+    name = f"projects/{project_id}/locations/{location}/processors/{processor_id}"
+    with open(file_path, "rb") as image:
+        image_content = image.read()
+    # Read the file into memory
+    document = {"content": image_content, "mime_type": "application/pdf"}
+    # Configure the process request
+    request = {"name": name, "document": document}
+    # Use the Document AI client to process the sample form
+    result = client.process_document(request=request)
+    return result.document
+
+The Process Document code cell calls the process_document function, saves the response in the document variable, and prints the raw text that has been detected. All of the processors will report some data for the document.text property.
+document=process_document()
+# print all detected text. 
+# All document processors will display the text content
+print("Document processing complete.")
+print("Text: {}".format(document.text))
+
+The Get Text Function code cell defines the get_text() function that retrieves the text for a named element using the text_anchor start_index and end_index properties of the named element's text_segments. This function is used to retrieve the form name and form value for form data if that data is returned by the processor.
+def get_text(doc_element: dict, document: dict):
+    """
+    Document AI identifies form fields by their offsets
+    in document text. This function converts offsets
+    to text snippets.
+    """
+    response = ""
+    # If a text segment spans several lines, it will
+    # be stored in different text segments.
+    for segment in doc_element.text_anchor.text_segments:
+        start_index = (
+            int(segment.start_index)
+            if segment in doc_element.text_anchor.text_segments
+            else 0
+        )
+        end_index = int(segment.end_index)
+        response += document.text[start_index:end_index]
+    return response
+
+The Display Form Data cell iterates over all pages that have been detected and for each form_field detected it uses the get_text() function to retrieve the field name and field value. Those values are then printed out, along with their corresponding confidence scores. Form data will be returned by processors that use the general form parser or the specialized parsers but will not be returned by processors that were created with the Document OCR parser.
+document_pages = document.pages
+print("Form data detected:\n")
+# For each page fetch each form field and display fieldname, value and confidence scores
+for page in document_pages:
+    print("Page Number:{}".format(page.page_number))
+    for form_field in page.form_fields:
+        fieldName=get_text(form_field.field_name,document)
+        nameConfidence = round(form_field.field_name.confidence,4)
+        fieldValue = get_text(form_field.field_value,document)
+        valueConfidence = round(form_field.field_value.confidence,4)
+        print(fieldName+fieldValue +"  (Confidence Scores: (Name) "+str(nameConfidence)+", (Value) "+str(valueConfidence)+")\n")
+
+The Display Entity Data cell extracts entity data from the document object and displays the entity type, value, and confidence properties for each entity detected. Entity data is only returned by processors that use specialized Document AI parsers such as the Procurement Expense parser. The general form parser and the Document OCR parser will not return entity data.
+if 'entities' in dir(document):
+    entities = document.entities
+    # Grab each key/value pair and their confidence scores.
+    table = PrettyTable(['Type', 'Value', 'Confidence'])
+    for entity in entities:
+    entity_type = entity.type_
+    value = entity.mention_text
+    confience = round(entity.confidence,4)
+    table.add_row([entity_type, value, confience])
+    print(table)
+else:
+    print("Document does not contain entity data.")
+
+
+
+
+
+###
+Task 4. Run the synchronous Document AI Python code
+In the second Set your Processor ID code cell replace the PROCESSOR_ID placeholder text with the Processor ID for the form-parser processor you created in an earlier step.
+Select the first cell, click the Run menu and then click Run Selected Cell and All Below to run all the code in the notebook.
+Form data detected:
+
+Page Number:1 Phone #: (906) 917-3486 (Confidence Scores: (Name) 1.0, (Value) 1.0) ... Date: 9/14/19 (Confidence Scores: (Name) 0.9999, (Value) 0.9999) ... Name: Sally Walker (Confidence Scores: (Name) 0.9973, (Value) 0.9973) ...
+
+If you are able to create a specialised processor the final cell will display entity data, otherwise it will show an empty table.
+In the JupyterLab menu click File and then click Save Notebook to save your progress.
+Check that a document has been processed using the synchronous Cloud Document API.
+
+
+
+
+###
+Task 5. Create a Document AI Document OCR processor
+In the Cloud Console, on the Navigation menu, click Document AI > Overview.
+Click Explore Processor and then click Create Processor for Document OCR. This is a type of general processor.
+Specify the processor name as ocr-processor and select the region US (United States) from the list.
+Click Create to create your processor.
+Make a note of the processor ID. You will use need to specify this in a later task.
+
+
+
+### 
+Task 6. Prepare your environment for asynchronous Document AI API calls
+Click the Terminal tab to re-open the terminal shell inside the Vertex AI Notebooks instance.
+Create a Cloud Storage bucket for the input documents and copy the sample W2 forms into the bucket:
+	export PROJECT_ID="$(gcloud config get-value core/project)"
+	export BUCKET="${PROJECT_ID}"_doc_ai_async
+	gsutil mb gs://${BUCKET}
+	gsutil -m cp gs://cloud-training/gsp925/async/*.* gs://${BUCKET}/input
+
+In the notebook interface open the JupyterLab notebook called documentai-async.ipynb.
+
+
+
+
+### not to past this code 
+Task 7. Make an asynchronous process document request
+Take a minute to review the Python code in the documentai-async.ipynb notebook.
+The first code cell imports the required libraries.
+from google.cloud import documentai_v1beta3 as documentai
+from google.cloud import storage
+
+import re
+import os
+import pandas as pd
+import simplejson as json
+
+The Set your Processor ID code cell sets the Processor ID that you have to manually set before you can process documents with the notebook.
+processor_id = "PROCESSOR_ID"  # TODO: Replace with a valid Processor ID
+The Set your variables code cell defines the parameters that will be used to make the asynchronous call, including the location of the input and output Cloud Storage buckets that will be used for the source data and output files. You will update the placeholder values in this cell for the PROJECT_ID and the PROCESSOR_ID in the next section of the lab before you run the code. The other variables contain defaults for the processor location, input Cloud Storage Bucket, and output Cloud Storage bucket that you do not need to change.
+
+project_id = %system gcloud config get-value core/project
+project_id = project_id[0]
+location = 'us'           # Replace with 'eu' if processor does not use 'us' location
+gcs_input_bucket  = project_id+"_doc_ai_async"   # Bucket name only, no gs:// prefix
+gcs_input_prefix  = "input/"                     # Input bucket folder e.g. input/
+gcs_output_bucket = project_id+"_doc_ai_async"   # Bucket name only, no gs:// prefix
+gcs_output_prefix = "output/"                    # Input bucket folder e.g. output/
+timeout = 300
+
+The Define Google Cloud client objects code cell initializes the Document AI and Cloud Storage clients.
+client_options = {"api_endpoint": "{}-documentai.googleapis.com".format(location)}
+client = documentai.DocumentProcessorServiceClient(client_options=client_options)
+storage_client = storage.Client()
+
+The Create input configuration code cell creates the input configuration array parameter for the source data that will be passed to the asynchronous Document AI request as an input configuration. This array stores the Cloud Storage source location, and the mime type, for each of the files that are found in the input Cloud Storage location.
+
+blobs = storage_client.list_blobs(gcs_input_bucket, prefix=gcs_input_prefix)
+input_configs = []
+print("Input Files:")
+for blob in blobs:
+    if ".pdf" in blob.name:
+        source = "gs://{bucket}/{name}".format(bucket = gcs_input_bucket, name = blob.name)
+        print(source)
+        input_config = documentai.types.document_processor_service.BatchProcessRequest.BatchInputConfig(
+            gcs_source=source, mime_type="application/pdf"
+        )
+        input_configs.append(input_config)
+
+The Create output configuration code cell creates the output parameter for the asynchronous request containing the output Cloud Storage bucket location and stores that as a Document AI batch output configuration.
+
+destination_uri = f"gs://{gcs_output_bucket}/{gcs_output_prefix}"
+output_config = documentai.types.document_processor_service.BatchProcessRequest.BatchOutputConfig(
+    gcs_destination=destination_uri
+)
+The Create the Document AI API request code cell builds the asynchronous Document AI batch process request object using the input and output configuration objects.
+name = f"projects/{project_id}/locations/{location}/processors/{processor_id}"
+request = documentai.types.document_processor_service.BatchProcessRequest(
+    name=name,
+    input_configs=input_configs,
+    output_config=output_config,
+)
+The Start the batch (asynchronous) API operation code cell makes an asynchronous document process request by passing the request object to the batch_process_documents() method. This is an asynchronous call so you use the result() method to force the notebook to wait until the background asynchronous job has completed.
+
+operation = client.batch_process_documents(request)
+# Wait for the operation to finish
+operation.result(timeout=timeout)
+print ("Batch process  completed.")
+
+The Fetch list of output files cell enumerates the objects in the output bucket location as defined in the destination_uri variable.
+The Display detected text from asynchronous output JSON files cell loads each output JSON file that is found as a Document AI document object and the text data detected by the Document OCR processor is printed out.
+The Display entity data cell will display any entity data that is found, however, entity data is only available for processors that were created using a specialized parser. Entity data will not be displayed with the general Document AI OCR parser used in this task.
+Run the asynchronous Document AI Python code
+Use the sample code provided for you in the Jupyterlab notebook to process documents asynchronously using a Document AI batch processing request.
+In the second code cell replace the PROCESSOR_ID placeholder text with the Processor ID for the form-parser processor you created in an earlier step.
+Select the first cell, click the Run menu and then click Run Selected Cell and All Below to run all the code in the notebook.
+As the code cells execute, you can step through the notebook reviewing the code and the comments that explain how the asynchronous request object is created and used.
+The notebook will take a minute or two to wait for the asynchronous batch process operation to complete at the Start the batch (asynchronous) API operation code cell. While the batch process API call itself is asynchronous the notebook uses the result method to force the notebook to wait until the asynchronous call has completed before enumerating and displaying the output data.
+If the asynchronous job takes longer than expected and times out you may have to run the remaining cells again to display the output. These are the cells after the Start the batch (asynchronous) API operation cell.
+Your output will contain text listing the Document AI data detected in each file. The Document OCR parser does not detect form or entity data so there will be no form or entity data produced. If you can create a specialised processor then you will also see entity data printed out by the final cell.
+In the JupyterLab menu click File and then click Save Notebook to save your progress.
+
+Document processing complete.
+Text: FakeDoc M.D.
+HEALTH INTAKE FORM
+Please fill out the questionnaire carefully. The information you provide will be used to complete
+your health profile and will be kept confidential.
+Date:
+Sally
+Walker
+Name:
+9/14/19
+...
+Check that a document has been processed using the asynchronous Cloud Document API.
+Check my progress
+
+
+
+
+Congratulations
+You've successfully made synchronous and asynchronous calls to the the Document AI API. In this lab, you enabled the Document AI API and created processors. You installed the client library for Python in a Vertex AI Notebooks instance, parsed data from a scanned form using Python to make a synchronous API call, and parsed data from scanned forms using Python to make an asynchronous API call.
+
