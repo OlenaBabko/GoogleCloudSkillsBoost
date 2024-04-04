@@ -1,0 +1,210 @@
+Overview
+The Document AI API is a document understanding solution that takes unstructured data, such as documents and emails, and makes the data easier to understand, analyze, and consume.
+
+
+
+###
+Activate Cloud Shell
+Click Activate Cloud Shell  at the top of the Google Cloud console.
+	gcloud auth list
+You can list the project ID with this command:
+	gcloud config list project
+
+
+
+###
+Task 1. Enable the APIs required for the lab
+In Cloud Shell, enter the following commands to enable the APIs required by the lab:
+ gcloud services enable documentai.googleapis.com      
+  gcloud services enable cloudfunctions.googleapis.com  
+  gcloud services enable cloudbuild.googleapis.com    
+  gcloud services enable geocoding-backend.googleapis.com  
+
+In the Cloud Console, in the Navigation menu (), click APIs & services > Credentials.
+Select Create credentials, then select API key from the dropdown menu.
+The API key created dialog box displays your newly created key. An API key is a long string containing upper and lower case letters, numbers, and dashes. For example, a4db08b757294ea94c08f2df493465a1.
+Click Edit API key in the dialog box.
+Select Restrict key in the API restrictions section to add API restrictions for your new API key.
+Click in the filter box and type Geocoding API.
+Select Geocoding API and click OK.
+Click the Save button.
+Note: If you cannot find the Geocoding API in the Restrict key dropdown list, refresh the page to refresh the list of available APIs.
+
+
+
+
+
+###
+Task 2. Copy the lab source files into your Cloud Shell
+In Cloud Shell, enter the following command to clone the source repository for the lab:
+ mkdir ./documentai-pipeline-demo
+  gsutil -m cp -r \
+    gs://sureskills-lab-dev/gsp927/documentai-pipeline-demo/* \
+    ~/documentai-pipeline-demo/
+
+
+
+
+###
+Task 3. Create a form processor
+In the console, open the navigation menu and select Document AI > Overview.
+Click Explore Processor and Click Create Processor for Form Parser.
+Specify the processor name as form-processor and select the region US (United States) from the list.
+Click Create to create your processor.
+
+
+
+
+
+###
+Task 4. Create Cloud Storage buckets and a BigQuery dataset
+In Cloud Shell, enter the following command to create the Cloud Storage buckets for the lab:
+
+ export PROJECT_ID=$(gcloud config get-value core/project)
+  export BUCKET_LOCATION="REGION"
+  gsutil mb -c standard -l ${BUCKET_LOCATION} -b on \
+    gs://${PROJECT_ID}-input-invoices
+  gsutil mb -c standard -l ${BUCKET_LOCATION} -b on \
+    gs://${PROJECT_ID}-output-invoices
+  gsutil mb -c standard -l ${BUCKET_LOCATION} -b on \
+    gs://${PROJECT_ID}-archived-invoices
+
+Create a BigQuery dataset and tables
+In Cloud Shell, enter the following command to create the BigQuery tables for the lab:
+
+ bq --location="US" mk  -d \
+     --description "Form Parser Results" \
+     ${PROJECT_ID}:invoice_parser_results
+  cd ~/documentai-pipeline-demo/scripts/table-schema/
+  bq mk --table \
+    invoice_parser_results.doc_ai_extracted_entities \
+    doc_ai_extracted_entities.json
+  bq mk --table \
+    invoice_parser_results.geocode_details \
+    geocode_details.json
+
+You can navigate to BigQuery in the Cloud Console and inspect the schemas for the tables in the invoice_parser_results dataset using the BigQuery SQL workspace.
+Create a Pub/Sub topic
+In Cloud Shell, enter the following command to create the Pub/Sub topics for the lab:
+
+ export GEO_CODE_REQUEST_PUBSUB_TOPIC=geocode_request
+  gcloud pubsub topics \
+    create ${GEO_CODE_REQUEST_PUBSUB_TOPIC}
+
+
+
+
+###
+Task 5. Create Cloud Functions
+You can examine the source code for the two Cloud Functions using the Code Editor or any other editor of your choice. The Cloud Functions are stored in the following folders in Cloud Shell:
+Process Invoices - scripts/cloud-functions/process-invoices
+Geocode Addresses - scripts/cloud-functions/geocode-addresses
+
+The main Cloud Function, process-invoices, is triggered when files are uploaded to the input files storage bucket you created earlier.
+The function folder scripts/cloud-functions/process-invoices contains the two files that are used to create the process-invoices Cloud Function.
+The requirements.txt file specifies the Python libraries required by the function. This includes the Document AI client library as well as the other Google Cloud libraries required by the Python code to read the files from Cloud Storage, save data to BigQuery, and write messages to Pub/Sub that will trigger the remaining functions in the solution pipeline.
+The main.py Python file contains the the Cloud Function code that creates the Document-AI, BigQuery, and Pub/Sub API clients and the following internal functions to process the documents:
+write_to_bq - Writes dictionary object to the BigQuery table. Note you must ensure the schema is valid before calling this function.
+get_text - Maps form name and value text anchors to the scanned text in the document. This allows the function to identify specific forms elements, such as the Supplier name and Address, and extract the relevant value. A specialized Document AI processor provides that contextual information directly in the entities property.
+process_invoice - Uses the asynchronous Document-AI client API to read and process files from Cloud Storage as follows:
+The process_invoices Cloud Function only processes form data that has been detected with the following form field names:
+input_file_name
+address
+supplier
+invoice_number
+purchase_order
+date
+due_date
+subtotal
+tax
+total
+The other Cloud Function, geocode-addresses, is triggered when a new message arrives on a Pub/Sub topic and it extracts its parameter data from the Pub/Sub message.
+
+
+
+Create the Cloud Function to process documents uploaded to Cloud Storage
+Create the Invoice Processor Cloud Function:
+
+ cd ~/documentai-pipeline-demo/scripts
+  export CLOUD_FUNCTION_LOCATION="REGION"
+  gcloud functions deploy process-invoices \
+  --region=${CLOUD_FUNCTION_LOCATION} \
+  --entry-point=process_invoice \
+  --runtime=python37 \
+  --service-account=${PROJECT_ID}@appspot.gserviceaccount.com \
+  --source=cloud-functions/process-invoices \
+  --timeout=400 \
+  --env-vars-file=cloud-functions/process-invoices/.env.yaml \
+  --trigger-resource=gs://${PROJECT_ID}-input-invoices \
+  --trigger-event=google.storage.object.finalize
+
+
+Create the Cloud Function to lookup geocode data from an address
+Create the Geocoding Cloud Function:
+
+ cd ~/documentai-pipeline-demo/scripts
+  gcloud functions deploy geocode-addresses \
+  --region=${CLOUD_FUNCTION_LOCATION} \
+  --entry-point=process_address \
+  --runtime=python38 \
+  --service-account=${PROJECT_ID}@appspot.gserviceaccount.com \
+  --source=cloud-functions/geocode-addresses \
+  --timeout=60 \
+  --env-vars-file=cloud-functions/geocode-addresses/.env.yaml \
+  --trigger-topic=${GEO_CODE_REQUEST_PUBSUB_TOPIC}
+
+
+
+
+
+###
+Task 6. Edit environment variables for Cloud Functions
+In the Cloud Console, in the Navigation menu (), click Cloud Functions.
+Click the Cloud Function process-invoices to open its management page.
+Click Edit.
+Click Runtime, build, connections and security settings to expand that section.
+Under Runtime environment variables, update the PROCESSOR_ID value to match the Invoice processor ID you created earlier.
+Under Runtime environment variables, update the PARSER_LOCATION value to match the region of the Invoice processor you created earlier. This will be us or eu. This parameter must be lowercase.
+Click Next and select .env.yaml and then update the PROCESSOR_ID and PARSER_LOCATION values again for your invoice processor.
+Click Deploy.
+Check that the Process Invoices Cloud Function has been deployed.
+
+Edit environment variables for the geocode-addresses Cloud Function
+Set the Cloud Function environment variables for the GeoCode data enrichment function.
+Click the Cloud Function geocode-addresses to open its management page.
+Click Edit.
+Click Runtime, build, connections and security settings to expand that section.
+Under Runtime environment variables, update the API_key value to match to the API Key value created in Task 1.
+Click Next and select .env.yaml and then update the API_key value to match the API Key value you set in the previous step.
+Click Deploy.
+
+
+
+
+###
+Task 7. Test and validate the end-to-end solution
+In Cloud Shell, enter the following command to upload sample forms to the Cloud Storage bucket that will trigger the process-invoices Cloud Function:
+
+ export PROJECT_ID=$(gcloud config get-value core/project)
+  gsutil cp gs://sureskills-lab-dev/gsp927/documentai-pipeline-demo/sample-files/* gs://${PROJECT_ID}-input-invoices/
+
+In the Cloud Console, on the Navigation menu (), click Cloud Functions.
+Click the Cloud Function process-invoices to open its management page.
+Click Logs.
+
+Watch the events until you see a final event indicating that the function execution finished with a status of OK. If errors are reported double check that the parameters set in the .env.yaml file in the previous section are correct. In particular make sure the Processor ID and location are valid. The event list does not automatically refresh.
+
+In the Cloud Console, on the Navigation menu (), click BigQuery.
+Expand your Project ID in the Explorer.
+Expand invoice_parser_results.
+Select doc_ai_extracted_entities and click Preview. You will see the form information extracted from the invoices by the invoice processor. You can see that address information and the supplier name has been detected.
+Select geocode_details and click Preview. You will see the formatted address, latitude, and longitude for each invoice that has been processed that contained address data that Document AI was able to extract.
+
+
+
+
+
+
+Congratulations
+You've successfully used the Document AI API and other Google Cloud services to build an end-to-end invoice processing pipeline. In this lab, you enabled the Document AI API, deployed Cloud Functions that use the Document AI, BigQuery, Cloud Storage, and Pub/Sub APIs, and configured a Cloud Function to trigger when documents are uploaded to Cloud Storage. You also configured a Cloud Function to use the Document AI client library for Python and to trigger when a Pub/Sub message was created.
+
