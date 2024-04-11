@@ -1,0 +1,205 @@
+3_Create a Cosmetic Anomaly Detection Model using Visual Inspection AI
+
+
+Overview
+Visual Inspection AI Cosmetic Inspection inspects products to detect and recognize defects such as dents, scratches, cracks, deformations, foreign materials, etc. on any kind of surface such as those shown in the following image.
+
+
+
+###
+Activate Cloud Shell
+Click Activate Cloud Shell  at the top of the Google Cloud console.
+	gcloud auth list
+Click Authorize.
+(Optional) You can list the project ID with this command:
+	gcloud config list project
+
+
+
+###
+Task 1. Create a dataset
+# In the Navigation Menu, click Visual Inspection AI to open the Visual Inspection console.
+# Click the Enable Visual Inspection AI API button.
+# Enable Visual Inspection AI API
+# Click Create a Dataset.
+# In the Create Dataset page:
+# For Dataset name, enter cosmetic
+# For Objective select Cosmetic Inspection.
+# For Annotation type select Polygon.
+# For Region, select US Central1.
+# Click Create.
+Create a Dataset
+
+
+
+
+### 
+Task 2. Import training images into the dataset
+# In Cloud Shell, run the commands below to copy images to your Cloud Storage bucket:
+export PROJECT_ID=$(gcloud config get-value core/project)
+gsutil mb gs://${PROJECT_ID}
+gsutil -m cp gs://cloud-training/gsp897/cosmetic-test-data/*.png \
+gs://${PROJECT_ID}/cosmetic-test-data/
+
+Copying will take a few minutes.
+# Create the CSV import file using the following commands:
+gsutil ls gs://${PROJECT_ID}/cosmetic-test-data/*.png > /tmp/demo_cosmetic_images.csv
+gsutil cp /tmp/demo_cosmetic_images.csv gs://${PROJECT_ID}/demo_cosmetic_images.csv
+
+# Back in the Visual Inspection AI console, on the Import tab, under Select an import method, select Select an import file from Cloud Storage.
+# In Import File Path, click Browse.
+# Expand the bucket with a name that matches the lab project ID.
+# Select the demo_cosmetic_images.csv import file.
+# Click Select.
+# Click Continue.
+# A status bar will appear to indicate Import in progress.
+
+
+
+
+### 
+Task 3. Provide annotation for defect instances in training images
+# Click Defects on the Visual Inspection console.
+# Click Add New Defect Type.
+# For Defect type, enter dent then select Done and click Create.
+# Click Add New Defect Type
+# For Defect type, enter scratch then select Done and click Create.
+
+After defining the defect types, you can start browsing each individual imported image to provide detailed annotations for each visible defect instance, falling into one of the predefined defect types.
+Click each image to get the close-up view of the image to annotate your defect instance.
+
+# Select an image with a defect.
+# Click the Add Simple Polygon icon in the close-up view of the image to start annotating images with defect instances.
+# Locate a concrete defect instance on the image and then provide polygon vertices to annotate the instance.
+Note: When locating defects be sure to close your polygon by going back to the first polygon vertex to complete each polygon shaped defect instance annotation.
+# Select a defect type from your previously defined defect type list, either dent or scratch, that matches the defect type you have just annotated.
+# Click Save.
+
+
+# Select an image without any defects.
+# Click the drop-down at the top of the UI tab to explicitly set the image label as No defect.
+# Click Confirm to set image label as No defect.
+
+
+
+
+###
+Overview 1. Evaluating a trained Cosmetic Inspection model
+# Go to the evaluation page button will show up on the right panel. This button opens the Model Evaluation review page.
+The page also shows the confusion matrix calculated based on the model's classification of each label. This matrix shows how often the model classified each label correctly (in blue), and which labels were most often confused for that label (in gray).
+The Confidence threshold slider on the top of the Model Evaluation page can be used to see how the precision / recall evaluation metrics change with the confidence threshold.
+
+
+
+
+###
+Overview 2. Creating a trained Cosmetic Inspection solution artifact
+# In the Test & Use tab on the Models page for the cosmetic model, click Create Solution Artifact to create a Cosmetic Inspection solution artifact for a trained model.
+# When creating the solution artifact you must specify the Solution artifact name, Cloud Source Repository Output gcr path, and the Solution type.
+# Clicking Create triggers the solution artifact container image creation process.
+# At this stage the solution artifact is now ready and can be tested in the UI. This allows you to check out the quality of the trained solution using handful of test images by running a batch prediction.
+
+
+
+###
+Overview 3. Performing batch predictions using a Cosmetic Inspection solution artifact
+# The steps to create a batch prediction job and check out the prediction results are as follows:
+# On the Test & Use tab in the Models page, click Create Batch Prediction in the Test your model section to start a cloud batch prediction job using your solution container.
+# You must provide the following details to start a batch processing task:
+Field
+Value
+Batch prediction name
+A name for this batch prediction test
+Solution artifact
+The ID of the Solution Artifact
+gs:// Source Path
+The path to a CSV file in a Cloud Storage bucket containing the image names.
+Destination path
+The path to a Cloud Storage bucket, where the JSON output file should be stored.
+
+
+# Click Create start the batch processing task.
+# Click the Storage link of the completed batch prediction job to show the batch prediction results and details.
+# In the results preview page, users can change the image from the dropdown button to show the prediction results of different images, as well as play with the Confidence Threshold scrollbar to visualize the results of model prediction masks at different threshold levels.
+
+The batch prediction data is contained in the JSON output file stored in the Cloud Storage bucket. An example of the output is shown below. You can see the data for the annotated defect that has been detected and classified as a dent as well as information about the source image.
+{
+  "predictionResult": {
+    "annotationsGroups": [
+      {
+        "annotationSet": {
+          "name": "projects/624839602356/locations/us-central1/datasets/1923855077538267136/annotationSets/2435347886779662336",
+          "displayName": "Predicted Masks Regions",
+          "mask": {},
+          "createTime": "2021-08-23T12:54:20.313205Z",
+          "updateTime": "2021-08-23T12:54:20.313205Z"
+        },
+        "annotations": [
+          {
+            "name": "localAnnotations/1",
+            "annotationSetId": "2435347886779662336",
+            "mask": {
+              "confidenceMask": {
+                "imageBytes": "iVBORw0KGgoAAAANSUhEUgAAAaAAAAGUCAAAAABWtqk+AAAD8ElEQVR4Xu3czWtcVRQA8MmkSaPSagRBBSUUBYNLdSHFjeDGTfFvEFcu3QhuXAnButAiQqvQVaFSKUIUCS21UPGjalqtLaVCGtMqJqY1mZj5yLyJk2aazJy6dd6F9/ut5p1zdof73n333TulEgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/TAQA0UyvVpZXnolRknF2ZWVdoNOxzCJmFzKNtRmP4gZknBtrXVLs3IupkjAyepmf9rWrk/ELLk7s92gVvPvkzGdinIMFMZw1wS2vOu5xU+2L0nBdH17BG2oTceKJBR4BMXrJ5OcKxS3QXON9d7AjvGfegNJKG6DLq+0QmRo/Pd3Q4gcnVvNep9C7dnc4kexKm+DMVAczz88Eu8fAyNjY5+FGLn5cKZ6xxhqXI1V5Oj0jc5yz5as9mksIkdv/7wcWpRdizXk6v2rtd77XPWtWJKr+JgsnFfHLqxk3YFWWvOmwjeoVHr62NVKc/ulNbEG7YiBAnq5NPHMntG7y7dWT9eztBrEbT9UmhtzhGzxQMyQhuN/1Ou1Wi2xBTm3uC0vlb65a2R4+LsYz1dq264OPtto1OvTr8d4vxx4dF8M5SutBk3s3XNv+zHQ/PXLN2KKBBy/tFhtNqrLC5MxU1wpPYP2771nqNx+MVtv/BVTxZVSg/bdVx4YaL86l8vzMUUCTnX2QWWNmzFVYOmMoKmnOts4Wsvf9mZIwS//dBaVs0qymwiLbHbt9qL/2kzMFVoit7i5h7aW1ZuJrbVQKr0z1+gMn/YA+jFmydvmOvKmxm8xS86OznftCsi8AQW5P4O+Hx/pWg9sfrX9mxSc7dmykV2JefJ1qfcMSCXmyXXTyMH5x4a6r1vnu6/I2xdh523TGlxSJm8v7nRkN4/EEnJ0Jpz+yJaPxRJyNBOOiLZWT8QS8nPoRjj4kTVMEBJy6M94pqB6MdaQn6k7juXUL8Qa8nPxjoNtzeuxho7+v6h+PP/4zrgbb81H1GQcvR4OTLWt+UaXjMPz/9GfhVjFlj5/btj/wujmMZwuraWpECE3l+PraXuGvfJ5rGJbnycJ5ytZ+IecUv3siyFCjr5eqm1tsNrQrKf5L2DJ6PeBzEceGGgrdc69rLfqC0+ECnrEJ/b/78ieB3cPDw7ealO2OnvitVhAt/43qO29+0d379o5PLTjyqk3Yw4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIrhX21+bxRVNpTBAAAAAElFTkSuQmCC"
+              },
+              "categoryMask": {
+                "imageBytes": "iVBORw0KGgoAAAANSUhEUgAAAaAAAAGUCAIAAAD8v2G1AAADpUlEQVR4Xu3bwW2DMBiGYVp1jq7UgXruQF2pk/QQKa0IMcbY4B8/zy0ckXj1mSTTBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPG9zC/A1X29f///+Pnz8f8jVyJwjGVWtxuNuyqBYyCLdbuTuet5nV+AUaXzR0QWHKPI75cpdxkWHMzlp5DOWXCMoiBbplx0Fhw8VdBEuiJwkKJxoQkcrNC4uLyDYxT7O+WVXDgCx0A0bjSOqLDB/kRyJIFjIPbXaBxRGdHOISaUUVhwjEihBmHBMbTiKSeRIQgclGRO4EJwRAW1uiwLDv7kTzlNDEHgYFk6dgIXgsDBU88ap25RCByseMycwEUhcJE8PmmTh+1At/vvhgcicDEspu3OIweLBC4AdYMyfgfXu3TdgASBAy7LEbVrq/PN+RQSLLh+rdYNSLPgOpVTN/MN0gSuR+oGVTiidienbkAOC64j+Wkz3yCHwPVC3aA6gTtfftomdYMtvIM72aa6AZtYcGfaWjfzDTYRuNOoG7T2Nr9Ae1vTBpSx4I5WVjfzDQr4kuFQZXUDylhwxymum/kGZQTuIOoGxxO45orTNqkb7CNwbakbnEjgGlI3OJfAtaJucDo/9K1vT9qAiiy4yvbXzXyDWgSuJnWDrvgnQzX76wbUJXAdMd+gLoHrhbpBdd7B1VR8SlU3aMGCO5+6QSMWXH1bd5zAQSMC19Bq6aQNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADr3Cwk0jvR5tBeBAAAAAElFTkSuQmCC"
+              },
+              "annotationSpecColors": [
+                {
+                  "annotationSpecId": "4043103266936979456",
+                  "color": {},
+                  "annotationSpecDisplayName": "none"
+                },
+                {
+                  "annotationSpecId": "687921544545959936",
+                  "color": {
+                    "red": 0.521568656,
+                    "green": 0.117647059,
+                    "blue": 0.694117665
+                  },
+                  "annotationSpecDisplayName": "dent"
+                }
+              ]
+            },
+            "source": {
+              "type": "MACHINE_PRODUCED",
+              "sourceModel": "projects/624839602356/locations/us-central1/solutions/6673419854088765440/modules/9138120303283535872/models/424534633623846912"
+            }
+          }
+        ]
+      },
+      {
+        "annotationSet": {
+          "name": "projects/624839602356/locations/us-central1/datasets/1923855077538267136/annotationSets/4948356478852399104",
+          "displayName": "Predicted Classification Labels",
+          "classificationLabel": {},
+          "createTime": "2021-08-23T12:54:20.416215Z",
+          "updateTime": "2021-08-23T12:54:20.416215Z"
+        },
+        "annotations": [
+          {
+            "name": "localAnnotations/0",
+            "annotationSpecId": "2516382993258381312",
+            "annotationSetId": "4948356478852399104",
+            "classificationLabel": {
+              "confidenceScore": 0.817249537
+            },
+            "source": {
+              "type": "MACHINE_PRODUCED",
+              "sourceModel": "projects/624839602356/locations/us-central1/solutions/6673419854088765440/modules/9138120303283535872/models/424534633623846912"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "predictionLatency": "1.248653110s"
+}
+
+
+
+
+Congratulations
+Congratulations, you've successfully prepared a dataset for training a Visual Inspection AI Cosmetic Inspection model, and annotated defect instances in training images. You've also reviewed the process of training and evaluating the Cosmetic Inspection anomaly detection model, seen how to create a trained Cosmetic Inspection solution artifact and then perform batch prediction using the solution artifact.
+
