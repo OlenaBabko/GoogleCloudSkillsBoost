@@ -1,0 +1,138 @@
+The Speech-to-Text API lets you transcribe audio speech files to text files in over 80 languages.
+
+
+###
+Task 1. Create an API key
+in the Navigation menu (Navigation menu icon), click APIs & services > Credentials.
+Click +CREATE CREDENTIALS.
+In the drop down menu, select API key.
+Copy the key you just generated.
+Next, save it to an environment variable to avoid having to insert the value of your API key in each request.
+
+To perform the next steps, connect to the linux-instance provisioned for you via SSH:
+On the Navigation menu (Navigation menu icon) click Compute Engine > VM Instances.
+Click SSH to the right of the linux-instance VM name.
+An interactive shell opens. Use this to perform the next operations.
+In the shell (SSH) run the following, replacing <your_api_key> with the key you just copied:
+export API_KEY=AIzaSyAK-VVtItwwjVgT8m8a7TilZTWb0XnCfJE
+
+
+###
+Task 2. Create your API request
+Note: This lab uses a pre-recorded file that's available on Cloud Storage: gs://cloud-samples-data/speech/brooklyn_bridge.flac. Before sending it to the Speech-to-Text API, you can listen to this file.
+Build your request to the API in a request.json file. Create the request.json file:
+touch request.json
+
+Open the file using your preferred command line editor (nano, vim, emacs) or gcloud 
+nano request.json
+
+and then add the following to your request.json file, using the uri value of the sample raw audio file:
+
+{
+  "config": {
+      "encoding":"FLAC",
+      "languageCode": "en-US"
+  },
+  "audio": {
+      "uri":"gs://cloud-samples-data/speech/brooklyn_bridge.flac"
+  }
+}
+
+
+Save the file as needed.
+CTRL+X, Y, ENTER
+
+The request body has a config and audio object.
+The encoding parameter tells the API which type of audio encoding you're using while the file is being sent to the API. 
+In the audio object, you pass the API the uri of the audio file, which is stored in Cloud Storage for this lab.
+
+
+
+###
+Task 3. Call the Speech-to-Text API
+Pass your request body, along with the API key environment variable, to the API with the following curl command (all in one single command line):
+
+curl -s -X POST -H "Content-Type: application/json" --data-binary @request.json \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" > result.json
+
+
+Your response is stored in a file named as result.json.
+To see the contents of file you can use:
+cat result.json
+
+
+The response returned by the curl command look something like this:
+
+{
+  "results": [
+    {
+      "alternatives": [
+        {
+          "transcript": "how old is the Brooklyn Bridge",
+          "confidence": 0.98216057
+        }
+      ],
+      "resultEndTime": "1.770s",
+      "languageCode": "en-us"
+    }
+  ],
+  "totalBilledTime": "15s"
+}
+
+The transcript value returns the Speech API's text transcription of your audio file, and the confidence value indicates how sure the API is that it has accurately transcribed your audio.
+
+
+
+###
+Task 4. Speech-to-Text transcription in different languages
+You can change the language_code parameter in request.json. 
+Try a French audio file - (for a preview, listen here).
+
+Edit your request.json 
+nano request.json 
+
+and change the content to the following:
+ {
+  "config": {
+      "encoding":"FLAC",
+      "languageCode": "fr"
+  },
+  "audio": {
+      "uri":"gs://cloud-samples-data/speech/corbeau_renard.flac"
+  }
+}
+
+CTRL+X, Y, ENTER
+
+Call the Speech-to-Text by running the curl command again.
+curl -s -X POST -H "Content-Type: application/json" --data-binary @request.json \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" > result.json
+
+
+See the results:
+cat result.json
+
+
+You should see the following response:
+
+{
+  "results": [
+    {
+      "alternatives": [
+        {
+          "transcript": "maître corbeau sur un arbre perché Tenait dans son bec un fromage maître Renard par l'odeur alléché lui tint à peu près ce langage et bonjour monsieur du corbeau",
+          "confidence": 0.93855613
+        }
+      ],
+      "resultEndTime": "12.630s",
+      "languageCode": "fr-fr"
+    }
+  ],
+  "totalBilledTime": "15s"
+}
+
+This is a sentence from a popular French children’s tale by Jean de la Fontaine. 
+
+
+Congratulations!
+You've performed speech to text transcription with the Speech API. You passed the API the Cloud Storage URI of your audio file and reviewed the alternative of passing a base64 encoded string of your audio content.
