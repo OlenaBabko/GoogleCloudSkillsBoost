@@ -1,0 +1,92 @@
+Overview
+The Cloud Translation API uses Google’s neural machine translation technology to instantly translate texts into more than one hundred languages.
+
+###
+Click Activate Cloud Shell Activate Cloud Shell icon at the top of the Google Cloud console.
+(Optional) You can list the active account name with this command:
+gcloud auth list
+Click Authorize.
+(Optional) You can list the project ID with this command:
+gcloud config list project
+Set the region for your project
+export REGION=us-west1
+gcloud config set compute/region $REGION
+
+
+
+###
+Task 1. Create an API key
+in the Navigation menu (Navigation menu icon), click APIs & services > Credentials.
+Click +CREATE CREDENTIALS.
+In the drop down menu, select API key.
+Copy the key you just generated.
+Next, save it to an environment variable to avoid having to insert the value of your API key in each request.
+Run the following in Cloud Shell. Be sure to replace <your_api_key> with the key you just copied:
+export API_KEY=<YOUR_API_KEY>
+
+
+
+###
+Task 2. Translate text
+In this example you translate the string "My name is Steve" into Spanish.
+Pass the text to be translated, along with the API key environment variable, to the Translation API with the following curl command:
+
+TEXT="My%20name%20is%20Steve"
+curl "https://translation.googleapis.com/language/translate/v2?target=es&key=${API_KEY}&q=${TEXT}"
+
+
+Your response should look like this:
+
+{
+  "data": {
+    "translations": [
+      {
+        "translatedText": "Mi nombre es Steve",
+        "detectedSourceLanguage": "en"
+      }
+    ]
+  }
+}
+
+In the response, you can see that the translated text and the source language that the API detected.​
+
+
+
+
+###
+Task 3. Detect the language
+In this example you detect the language of two strings.
+Pass the text to be examined, along with the API key environment variable, to the Translation API with the following curl command:
+TEXT_ONE="Meu%20nome%20é%20Steven"
+TEXT_TWO="日本のグーグルのオフィスは、東京の六本木ヒルズにあります"
+curl "https://translation.googleapis.com/language/translate/v2/detect?key=${API_KEY}&q=${TEXT_ONE}&q=${TEXT_TWO}"
+
+Your response should look like this:
+
+{
+  "data": {
+    "detections": [
+      [
+        {
+          "isReliable": false,
+          "language": "pt",
+          "confidence": 1
+        }
+      ],
+      [
+        {
+          "language": "ja",
+          "isReliable": false,
+          "confidence": 1
+        }
+      ]
+    ]
+  }
+}
+The languages returned by this sample are "pt" and "ja". 
+These are the ISO-639-1 identifiers for Portuguese and Japanese. 
+This list of languages supported by the Translation API lists all the possible language codes which can be returned.
+
+
+Congratulations!
+You've learned how to translate text with the Cloud Translation API!
