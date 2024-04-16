@@ -1,0 +1,291 @@
+Challenge scenario
+You are starting your career as a junior cloud architect. In this role, you have been assigned to work on a team project that requires you to use the Cloud Speech API services in Google Cloud.
+
+Your challenge
+For this challenge, you are required to transcribe speech to text in different languages using the Cloud Speech API.
+You need to:
+Create synthetic speech from text using the Text-to-Speech API.
+Create an API key.
+Perform speech to text transcription with the Cloud Speech API.
+Translate text with the Cloud Translation API.
+Detect a language with the Cloud Translation API.
+For this challenge lab, a virtual machine (VM) instance named Instance name has been configured for you to complete tasks 2 through 5.
+
+
+
+###
+Task 1. Create an API key
+For this task, you need to create an API key to use in this and other tasks when sending a request to the Speech-to-Text API.
+Save the API key to use in other tasks.
+
+***
+in the Navigation menu (Navigation menu icon), click APIs & services > Credentials.
+Click +CREATE CREDENTIALS.
+In the drop down menu, select API key.
+Copy the key you just generated.
+
+***
+
+
+
+###
+Task 2. Create synthetic speech from text using the Text-to-Speech API
+For this task, connect to the VM instance Instance name provisioned for you via SSH.
+Activate the virtual environment using the 
+source venv/bin/activate command
+
+***
+On the Navigation menu (Navigation menu icon) click Compute Engine > VM Instances.
+Click SSH to the right of the linux-instance VM name.
+An interactive shell opens. Use this to perform the next operations.
+In the shell (SSH) run the following, replacing <your_api_key> with the key you just copied:
+export API_KEY=AIzaSyDt4VXOKo8jWnRmTg61VgXCY0Eb1XEokh0
+source venv/bin/activate
+
+Install the virtualenv environment:
+sudo apt-get install -y virtualenv
+Build the virtual environment:
+python3 -m venv venv
+Activate the virtual environment.
+source venv/bin/activate
+***
+
+
+Using a text editor (such as nano or vim), create a file named synthesize-text.json and paste the following into the file:
+
+{
+    'input':{
+        'text':'Cloud Text-to-Speech API allows developers to include
+           natural-sounding, synthetic human speech as playable audio in
+           their applications. The Text-to-Speech API converts text or
+           Speech Synthesis Markup Language (SSML) input into audio data
+           like MP3 or LINEAR16 (the encoding used in WAV files).'
+    },
+    'voice':{
+        'languageCode':'en-gb',
+        'name':'en-GB-Standard-A',
+        'ssmlGender':'FEMALE'
+    },
+    'audioConfig':{
+        'audioEncoding':'MP3'
+    }
+}
+
+
+*** OK
+touch synthesize-text.json
+nano synthesize-text.json
+
+{
+    'input':{
+        'text':'Cloud Text-to-Speech API allows developers to include
+           natural-sounding, synthetic human speech as playable audio in
+           their applications. The Text-to-Speech API converts text or
+           Speech Synthesis Markup Language (SSML) input into audio data
+           like MP3 or LINEAR16 (the encoding used in WAV files).'
+    },
+    'voice':{
+        'languageCode':'en-gb',
+        'name':'en-GB-Standard-A',
+        'ssmlGender':'FEMALE'
+    },
+    'audioConfig':{
+        'audioEncoding':'MP3'
+    }
+}
+
+CTRL+X, Y, ENTER
+
+curl -H "Authorization: Bearer "$(gcloud auth application-default print-access-token) \
+  -H "Content-Type: application/json; charset=utf-8" \
+  -d @synthesize-text.json "https://texttospeech.googleapis.com/v1/text:synthesize" \
+  > synthesize-text.txt
+
+cat synthesize-text.txt
+***
+
+Call the Text-to-Speech API to synthesize the text of the synthesize-text.json file, and store the result in a file named ____.
+Using a text editor (such as nano or vim), create a file named tts_decode.py and paste the following code into that file:
+
+import argparse
+from base64 import decodebytes
+import json
+
+"""
+Usage:
+        python tts_decode.py --input "Filled in at lab start" \
+        --output "synthesize-text-audio.mp3"
+
+"""
+
+def decode_tts_output(input_file, output_file):
+    """ Decode output from Cloud Text-to-Speech.
+
+    input_file: the response from Cloud Text-to-Speech
+    output_file: the name of the audio file to create
+
+    """
+
+    with open(input_file) as input:
+        response = json.load(input)
+        audio_data = response['audioContent']
+
+        with open(output_file, "wb") as new_file:
+            new_file.write(decodebytes(audio_data.encode('utf-8')))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="Decode output from Cloud Text-to-Speech",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--input',
+                       help='The response from the Text-to-Speech API.',
+                       required=True)
+    parser.add_argument('--output',
+                       help='The name of the audio file to create',
+                       required=True)
+
+    args = parser.parse_args()
+    decode_tts_output(args.input, args.output)
+
+
+***
+touch tts_decode.py
+nano tts_decode.py
+
+
+import argparse
+from base64 import decodebytes
+import json
+
+"""
+Usage:
+        python tts_decode.py --input "Filled in at lab start" \
+        --output "synthesize-text-audio.mp3"
+
+"""
+
+def decode_tts_output(input_file, output_file):
+    """ Decode output from Cloud Text-to-Speech.
+
+    input_file: the response from Cloud Text-to-Speech
+    output_file: the name of the audio file to create
+
+    """
+
+    with open(input_file) as input:
+        response = json.load(input)
+        audio_data = response['audioContent']
+
+        with open(output_file, "wb") as new_file:
+            new_file.write(decodebytes(audio_data.encode('utf-8')))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="Decode output from Cloud Text-to-Speech",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--input',
+                       help='The response from the Text-to-Speech API.',
+                       required=True)
+    parser.add_argument('--output',
+                       help='The name of the audio file to create',
+                       required=True)
+
+    args = parser.parse_args()
+    decode_tts_output(args.input, args.output)
+
+
+
+
+CTRL+X, Y, ENTER
+
+python tts_decode.py --input "synthesize-text.txt" --output "synthesize-text-audio.mp3"
+
+
+***
+
+Now, to create an audio file using the response you received from the Text-to-Speech API, run the following command from Cloud Shell:
+python tts_decode.py --input "synthesize-text.txt" --output "synthesize-text-audio.mp3"
+
+This creates a new MP3 file named synthesize-text-audio.mp3.
+Finally, download the audio file via the DOWNLOAD FILE option of the VM instance's SSH session in order to listen to it.
+
+
+
+
+
+### OK
+Task 3. Perform speech to text transcription with the Cloud Speech API
+Note: This lab uses a pre-recorded file that's available on Cloud Storage: gs://cloud-samples-data/speech/corbeau_renard.flac. You can listen to this file.
+
+Using a text editor (such as nano or vim), create a file named ____ as your API request to transcribe the audio file available at the gs://cloud-samples-data/speech/corbeau_renard.flac location to French.
+
+Call ____ and store the result in a file named ____.
+
+Using a text editor (such as nano or vim), create a file named speech_request.json as your API request to transcribe the audio file available at the gs://cloud-samples-data/speech/corbeau_renard.flac location to French.
+
+Call speech_request.json and store the result in a file named speech_response.json.
+
+***
+touch speech_request_fr.json
+
+audio_uri="gs://cloud-samples-data/speech/corbeau_renard.flac"
+
+nano speech_request_fr.json
+
+{
+  "config": {
+      "encoding":"FLAC",
+      "languageCode": "fr"
+  },
+  "audio": {
+      "uri":"gs://cloud-samples-data/speech/corbeau_renard.flac"
+  }
+}
+
+
+CTRL+X, Y, ENTER
+
+curl -s -X POST -H "Content-Type: application/json" --data-binary @speech_request_fr.json \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" >speech_response_fr.json
+
+cat speech_response_fr.json
+***
+
+
+### OK
+Task 4. Translate text with the Cloud Translation API
+For this task, connect to the VM instance Instance name provisioned for you via SSH.
+Translate the ____ sentence to the English language by calling the Cloud Translation API and store the result in the ____ file.
+
+
+***
+***
+response=$(curl -s -X POST \
+-H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+-H "Content-Type: application/json; charset=utf-8" \
+-d "{\"q\": \"$これは日本語です。\"}" \
+"https://translation.googleapis.com/language/translate/v2?key=${API_KEY}&source=ja&target=en")
+echo "$response" > translated_response.txt
+
+***
+***
+
+
+
+### OK
+Task 5. Detect a language with the Cloud Translation API
+For this task, connect to the VM instance Instance name provisioned for you via SSH.
+Detect the language of the ____ sentence by calling the Cloud Translation API and store the result in the ____ file.
+
+***
+curl -H "Authorization: Bearer "$(gcloud auth application-default print-access-token) \
+  -H "Content-Type: application/json; charset=utf-8" \
+  -d "{\"q\": [\"$Este%é%japonês.\"]}" \
+ "https://translation.googleapis.com/language/translate/v2/detect?key=${API_KEY}" \
+  -o "detection_response.txt"
+***
+
+
+
+Congratulations!
+You have successfully created synthetic speech from text using the Text-to-Speech API, transcribed speech to text using the Cloud Speech API, as well as translated text and detected a language with the Cloud Translation API.
