@@ -1,0 +1,194 @@
+Custom Document Extraction with Document AI Workbench
+GSP1142
+
+
+
+
+Task 1. Enable the Document AI API
+Before you can begin using Document AI, you must enable the API.
+In Cloud Shell, run the following command to enable the API for Document AI.
+gcloud services enable documentai.googleapis.com
+Copied!
+You should see something like this:
+Operation "operations/..." finished successfully.
+Run the following command to install the Python client libraries for Document AI.
+pip3 install --upgrade google-cloud-documentai
+Copied!
+You should see something like this:
+...
+Installing collected packages: google-cloud-documentai
+Successfully installed google-cloud-documentai-2.15.0
+Now, you're ready to use the Document AI API!
+Enable the Document AI API
+
+
+
+
+Task 2. Create a processor
+You must first create an Custom Document Extractor processor to use for this lab.
+You must first create a Form Parser processor instance to use in the Document AI Platform for this tutorial.
+From the Navigation menu select View all products. Under Artificial Intelligence, select Document AI.
+Click Create Custom Processor.
+Inside the Custom Extractor box, click Create Processor.
+Give it the name lab-custom-extractor and select the region US (United States) on the list.
+Click Create to create your processor.
+Click Check my progress to verify the objective.
+Create a Processor
+
+
+
+
+Task 3. Define processor fields
+You are now on the Processor overview page of the processor you just created.
+You can specify the fields you want the processor to extract and begin labeling documents.
+Click on the Get started tab. The Fields menu appears.
+Click Create New Field.
+Enter the name for the field. Select the Data type and the Occurrence. Click Create. Refer to Define processor schema for detailed instructions on creating and editing a schema.
+Create each of the following labels for the processor schema.
+Name
+Data Type
+Occurrence
+control_number
+Number
+Optional multiple
+employees_social_security_number
+Number
+Required multiple
+employer_identification_number
+Number
+Required multiple
+employers_name_address_and_zip_code
+Address
+Required multiple
+federal_income_tax_withheld
+Money
+Required multiple
+social_security_tax_withheld
+Money
+Required multiple
+social_security_wages
+Money
+Required multiple
+wages_tips_other_compensation
+Money
+Required multiple
+
+You can also create and use other types of labels in your processor schema, such as checkboxes and tabular entities. For example, the W-2 forms contain a Statutory employee, Retirement plan, and Third party sick pay check boxes that you could also add to the schema.
+
+Click Check my progress to verify the objective.
+Create Labels
+
+
+
+
+Task 4. Upload a sample document
+Next, you upload a sample W-2 PDF and label it.
+Click Upload Sample Document.
+In the sidebar, click Import documents from Google Cloud Storage.
+For this example, enter this bucket name in Source path. This links directly to one document.
+cloud-samples-data/documentai/Custom/W2/PDF/W2_XL_input_clean_2950.pdf
+Copied!
+Click Import.
+You are redirected to the labeling console.
+
+
+
+
+Task 5. Label a document
+The process of selecting text in a document, and applying labels is known as annotation.
+When you're at the labeling console, notice that many of the labels are already populated.
+
+
+Note: Your results might look slightly different than the sample image.
+To use the suggested labels, hold the pointer over each label in the side panel, and click on the check mark to confirm the label is correct. You can edit the values if they do not match the document text.
+In this example, the values at the bottom of the document were not identified automatically, so you will need to label them manually.
+Use the Bounding box tool by default, or the Select text tool for multi-line values, to select the content and apply the label.
+Note: The Select text tool does not work for all text values, so use the Bounding box if appropriate. You can also select non-text fields such as checkboxes using the Bounding box tool.
+In this example, the value of wages_tips_other_compensation was selected with the Bounding box tool, and that label is applied.
+
+
+Review the detected text values to ensure that they reflect the correct text from the document.
+The labeled W-2 document should look like this when complete:
+If needed, you can click Create New Field to add a new field to the schema from this page.
+Click Mark as Labeled when you have finished annotating the document.
+You are redirected to the Get started tab.
+
+
+
+
+
+
+Task 6. Build processor version using foundation model
+After labeling a single document, you can create a processor version using the pretrained foundation model to extract entities.
+Click on the Build tab.
+
+Under Call foundation model, click Create New Version.
+Enter a name for your processor version, such as w2-foundation-model.
+Click Create. It takes a few minutes to create.
+Note: Once you create a processor version, you cannot delete fields you have created. You can disable them on the fields page if you no longer need them.
+Optional: Click on the Deploy & Use tab. On this page, you can view the available processor versions and the deployment status of the new version.
+You test and evaluate this version later in the lab.
+Click Check my progress to verify the objective.
+Build processor version using foundation model
+
+
+
+
+
+
+Task 7. Use generative AI to auto-label documents
+The foundation model can accurately extract fields for a variety of document types, but you can also provide additional training data to improve the accuracy of the model for specific document structures.
+Document AI Workbench uses the label names you define and previous annotations to make it quicker and easier to label documents at scale with auto-labeling.
+Go to the Build page.
+Click Import Documents.
+In the sidebar, click Import documents from Google Cloud Storage.
+Enter this bucket name in Source path. This contains unlabeled W-2 PDF files.
+cloud-samples-data/documentai/Custom/W2/AutoLabel
+Copied!
+From the Data split list, select Auto-split. This automatically splits the documents to have 80% in the training set and 20% in the test set.
+In the Auto-labeling section, select the Import with auto-labeling checkbox.
+Select the foundation model processor version you just created to label the documents.
+Click Import and wait for the documents to import. You can leave this page and return later.
+You must verify the auto-labeled documents before you can use them for training or testing. Click Start Labeling to view the auto-labeled documents.
+To use the suggested labels, hold the pointer over each annotation, and click on the check mark to confirm the label is correct. You can edit the values if they do not match the document text.
+Click Mark as Labeled when you have finished annotating the document.
+Repeat for each auto-labeled document. For this tutorial, you can skip any documents that were not successfully auto-labeled.
+
+
+
+
+Task 8. Import prelabeled training documents
+In this lab, you are provided with prelabeled data. If working on your own project, you have to determine how to label your data. Refer to Labeling options for more details. In general, more training data produces higher accuracy.
+Go to the Build page.
+Click Import Documents.
+In the sidebar, click Import documents from Google Cloud Storage.
+Enter the following path in Source path. This bucket contains prelabeled documents in the Document JSON format.
+cloud-samples-data/documentai/Custom/W2/JSON-2
+Copied!
+From the Data split list, select Auto-split. This automatically splits the documents to have 80% in the training set, and 20% in the test set. Leave Import with auto-labeling unchecked.
+Click Import. Import takes several minutes.
+(Optional) From the Build page, you can access the Manage Dataset console to view and edit all documents and labels in the dataset.
+
+
+
+
+Task 9. Train the processor
+Now that you have sufficient training and test data, you can train the processor. Because training might take several hours, make sure you have set up the processor with the appropriate data and labels before you begin training.
+Under Train a custom model, click Create New Version.
+If Create New Version cannot be clicked, click on View Full Requirements for information about the dataset requirements.
+In the Version name field, enter a name for this processor version, such as w2-custom-model.
+(Optional) Click View Label Stats to find information about the document labels. That can help determine your coverage. Click Close to return to the training setup.
+Under Model training method, select Model based.
+Click Start training.
+(Optional) Click on the Deploy & Use tab. On this page, you can view the available processor versions and the training status of the new version.
+
+
+Click Check my progress to verify the objective.
+Train the model
+Great! You have now started training your first Custom Document AI Processor. Since the training job will take around a few hours, the lab will end here. If you are interested in learning about how to deploy and test the model version, you can check out the following section in the documentation.
+
+
+
+
+Congratulations!
+Congratulations, in this lab you've successfully used Document AI to create a Custom Document Extraction processor, import a dataset, and label example documents. You can now use this processor to parse documents in this format just as you would for any Specialized Processor. You can also use this processor to label new documents using auto-labeling as well as use the Document AI Workbench to manage your training data and training jobs.
