@@ -1,0 +1,212 @@
+GSP513 Build Custom Processors with Document AI: Challenge Lab
+
+Introduction
+In a challenge lab you’re given a scenario and a set of tasks. Instead of following step-by-step instructions, you will use the skills learned from the labs in the course to figure out how to complete the tasks on your own! An automated scoring system (shown on this page) will provide feedback on whether you have completed your tasks correctly.
+When you take a challenge lab, you will not be taught new Google Cloud concepts. You are expected to extend your learned skills, like changing default values and reading and researching error messages to fix your own mistakes.
+
+Challenge scenario
+You were onboarded at Cymbal Labs just a few months ago. Cymbal Labs is a leading bioscience firm dedicated to advancing innovation in biotechnology. Cymbal Labs researches, manufactures, and distributes a wide variety of healthcare solutions across a range of medical disciplines, including internal medicine, oncology, immunology, and cardiology.
+
+
+By harnessing Document AI Workbench, a powerful tool for creating custom document processors, Cymbal Labs accelerates its discoveries and gains valuable insights from scientific publications, patents, and research documents. By employing Document AI trained on patents, Cymbal Labs can prioritize research focus, streamline the R&D process, identify licensing and collaboration opportunities, and manage intellectual property relating to its own patents.
+Your team has been working to create a Custom Document Extractor that can extract key information from public patent documents. Your job is to give them a hand and help them get their Document AI workflows up and running. As part of this demonstration, they have a list of tasks they would like to see you do in an allotted period of time in a sandbox environment.
+Your challenge
+Your tasks include the following:
+Create a custom processor.
+Import a document into a dataset.
+Define processor schema.
+Label a document.
+Assign an annotated document to the training set.
+Import pre-labeled data to the training and test sets.
+Kick off a training job.
+
+
+
+
+Task 1. Enable the Document AI API
+Before you can begin using Document AI, you must enable the API.
+Enable the Document AI API.
+Enable the Document AI API
+Enable the Document AI API
+Activate Cloud Shell  
+
+
+gcloud services enable documentai.googleapis.com
+
+pip3 install --upgrade pandas
+
+pip3 install --upgrade google-cloud-documentai
+
+
+
+Task 2. Create a processor
+You must first create an Custom Extractor processor to use for this lab.
+Create a Custom Extractor processor with the name <filled in at lab start>. Use the region US (United States).
+
+
+Navigation Menu, click VIEW ALL PRODUCTS under Artificial Intelligence, select Document AI
+\\Click Explore Processors, scroll down to Specialized and and inside Invoice Parser, click Create Processor.
+\\Click Create Custom Processor.
+Inside the Custom Extractor box, click Create Processor.
+Give it the name lab-custom-extractor  Click Create, Copy Processor ID
+
+
+
+
+Create a Processor
+Note: The processor takes a few minutes to create and is ready once the dataset has been initialized.
+
+
+Task 3. Define processor fields
+In this section, you define the fields for your custom processor. The schema provides labels that you use to annotate documents.
+Create each of the following labels for the processor schema.
+Name
+Data Type
+Occurrence
+applicant_line_1
+Plain Text
+Required once
+application_number
+Number
+Required once
+class_international
+Plain Text
+Required once
+class_us
+Plain Text
+Required once
+filing_date
+Datetime
+Required once
+inventor_line_1
+Plain text
+Required once
+issuer
+Plain text
+Required once
+patent_number
+Number
+Required once
+publication_date
+Datetime
+Required once
+title_line_1
+Plain text
+Required once
+
+Create Labels
+
+
+Click on the Get started tab. The Fields menu appears.
+Click Create New Field.
+Enter the name for the field. Select the Data type and the Occurrence. Click Create. 
+
+
+
+Task 4. Import a document into a dataset
+Next, you import a test document into your dataset.
+Import the following document into your dataset:
+gs://cloud-samples-data/documentai/codelabs/challenge/unlabeled/us_001.pdf
+Copied!
+Import a Test Document
+
+
+Click Upload Sample Document.
+In the sidebar, click Import documents from Google Cloud Storage.
+For this example, enter this bucket name in Source path. This links directly to one document.
+gs://cloud-samples-data/documentai/codelabs/challenge/unlabeled/us_001.pdf
+
+Import.
+
+
+
+
+
+
+Task 5. Label a document
+The process of selecting text in a document, and applying labels is known as annotation. In this section, you will annotate a document with the labels you defined in the previous section.
+The generative AI model should have populated most of the labels for you. You can use and edit the suggested labels as needed.
+Add the following labels to the us_001 document:
+applicant_line_1 = Colby Green
+application_number = 679,694
+class_international = H04W 64/00
+class_us = H04W 64/003
+filing_date = Aug. 17, 2017
+inventor_line_1 = Colby Green
+issuer = US
+patent_number = 10,136,408
+publication_date = Nov. 20, 2018
+title_line_1 = DETERMINING HIGH VALUE
+The labeled patent document should look like this when complete:
+
+Label a Document
+
+
+ applying labels is known as annotation.
+When you're at the labeling console, notice that many of the labels are already populated.
+To use the suggested labels, hold the pointer over each label in the side panel, and click on the check mark to confirm the label is correct. You can edit the values if they do not match the document text.
+In this example, the values at the bottom of the document were not identified automatically, so you will need to label them manually.
+Use the Bounding box tool by default, or the Select text tool for multi-line values, to select the content and apply the label.
+Note: The Select text tool does not work for all text values, so use the Bounding box if appropriate. You can also select non-text fields such as checkboxes using the Bounding box tool.
+In this example, the value of wages_tips_other_compensation was selected with the Bounding box tool, and that label is applied.
+Review the detected text values to ensure that they reflect the correct text from the document.
+If needed, you can click Create New Field to add a new field to the schema from this page.
+Click Mark as Labeled when you have finished annotating the document.
+You are redirected to the Get started tab.
+
+
+
+
+
+
+Task 6. Assign an annotated document to the training set
+Now that you have labeled this example document, you can assign it to the training set.
+Assign the us_001 document to the training set.
+Assign Document to Training Set
+processor ->> /Manage Dataset - > галочку поставити
+
+
+
+
+
+
+Task 7. Import pre-labeled data to the training and test sets
+Import the following pre-labeled documents into your dataset. For Data split, use Auto-split. Leave Import with auto-labeling unchecked.
+gs://cloud-samples-data/documentai/codelabs/challenge/labeled
+Copied!
+Import pre-labeled data
+
+
+Go to the Build page.
+Click Import Documents.
+In the sidebar, click Import documents from Google Cloud Storage.
+Enter the following path in Source path. This bucket contains prelabeled documents in the Document JSON format.
+gs://cloud-samples-data/documentai/codelabs/challenge/labeled
+Copied!
+From the Data split list, select Auto-split. This automatically splits the documents to have 80% in the training set, and 20% in the test set. Leave Import with auto-labeling unchecked.
+Click Import. Import takes several minutes.
+(Optional) From the Build page, you can access the Manage Dataset console to view and edit all documents and labels in the dataset.
+
+
+
+
+Task 8. Train the processor
+Now that you have imported the training and test data, you can kick off a training job for the processor.
+Train a new version of the processor. Use the following name for the processor version: <filled in at lab start>.
+Train the Processor
+
+
+Under Train a custom model, click Create New Version.
+If Create New Version cannot be clicked, click on View Full Requirements for information about the dataset requirements.
+In the Version name field, enter a name for this processor version, such as w2-custom-model.
+(Optional) Click View Label Stats to find information about the document labels. That can help determine your coverage. Click Close to return to the training setup.
+Under Model training method, select Model based.
+Click Start training.
+(Optional) Click on the Deploy & Use tab. On this page, you can view the available processor versions and the training status of the new version.
+
+
+
+
+Congratulations!
+Congratulations! In this lab you verified your skills on Document AI Workbench by creating a custom processor and dataset, importing documents, labeling documents, and training a processor. You can now use Document AI Workbench to create custom processors for your own use cases.
+
