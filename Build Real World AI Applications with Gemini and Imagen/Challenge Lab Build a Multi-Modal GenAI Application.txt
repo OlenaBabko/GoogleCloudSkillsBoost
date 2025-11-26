@@ -1,0 +1,233 @@
+Build a Multi-Modal GenAI Application: Challenge Lab
+
+qwiklabs-gcp-01-f9070f58bc85
+europe-west1
+
+Overview
+In a challenge lab you’re given a scenario and a set of tasks. Instead of following step-by-step instructions, you will use the skills learned from the labs in the course to figure out how to complete the tasks on your own! An automated scoring system (shown on this page) will provide feedback on whether you have completed your tasks correctly.
+When you take a challenge lab, you will not be taught new Google Cloud concepts. You are expected to extend your learned skills, like changing default values and reading and researching error messages to fix your own mistakes.
+To score 100% you must successfully complete all tasks within the time period! Are you ready for the challenge?
+Labs are timed and cannot be paused. The timer starts when you click Start Lab.
+The included cloud terminal is preconfigured with the gcloud SDK.
+Use the terminal to execute commands and then click Check my progress to verify your work.
+
+
+Challenge scenario
+Scenario: You're a developer at an AI-powered bouquet design company. Your clients can describe their dream bouquet, and your system generates realistic images for their approval. To further enhance the experience, you're integrating cutting-edge image analysis to provide descriptive summaries of the generated bouquets. Your main application will invoke the relevant methods based on the users' interaction and to facilitate that, you need to finish the below tasks:
+
+
+Task 1: Develop a Python function named generate_bouquet_image(prompt). This function should invoke the imagen-3.0-generate-002 model using the supplied prompt, generate the image, and store it locally. For this challenge, use the prompt: Create an image containing a bouquet of 2 sunflowers and 3 roses.
+
+
+# Task-1 OK
+________________
+
+import argparse
+
+import vertexai
+from vertexai.preview.vision_models import ImageGenerationModel
+
+def generate_bouquet_image(
+    project_id: str, location: str, output_file: str, prompt: str
+) -> vertexai.preview.vision_models.ImageGenerationResponse:
+    """Generate an image using a text prompt.
+    Args:
+      project_id: Google Cloud project ID, used to initialize Vertex AI.
+      location: Google Cloud region, used to initialize Vertex AI.
+      output_file: Local path to the output image file.
+      prompt: The text prompt describing what you want to see."""
+
+    vertexai.init(project=project_id, location=location)
+
+    model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-002")
+
+    images = model.generate_images(
+        prompt=prompt,
+        # Optional parameters
+        number_of_images=1,
+        seed=1,
+        add_watermark=False,
+    )
+
+    images[0].save(location=output_file)
+
+    return images
+
+generate_bouquet_image(
+    project_id='qwiklabs-gcp-01-f9070f58bc85',
+    location='europe-west1',
+    output_file='bouquet.jpeg',
+    prompt='Create an image containing a bouquet of 2 sunflowers and 3 roses.',
+    )
+________________________
+generate_bouquet.py
+
+terminal
+
+/usr/bin/python3 /generate_bouquet.py
+
+
+Click EXPLORER > image.jpeg
+
+
+Click Check my progress to verify the objective.
+Generate an image by sending a text prompt
+
+
+
+
+_______________________
+Task 2: Develop a second Python function called analyze_bouquet_image(image_path). This function will take the image path as input along with a text prompt to generate birthday wishes based on the image passed and send it to the gemini-2.0-flash-001 model. To ensure responses can be obtained as and when they are generated, enable streaming on the prompt requests.
+
+_________
+# Task 2
+__________
+/usr/bin/python3 /analyze_bouquet.py
+______________
+працює, але не зараховується:
+________________
+
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part, Image
+
+def analyze_bouquet_image(project_id: str, location: str) -> str:
+    # Initialize Vertex AI
+    vertexai.init(project=project_id, location=location)
+
+    # Load Gemini multimodal model
+    multimodal_model = GenerativeModel("gemini-2.0-flash-001")
+
+    # Load the image and create the input parts
+    response = multimodal_model.generate_content(
+        [
+            Part.from_image(Image.load_from_file("bouquet.jpeg")),
+            "Generate birthday wishes based on the image"
+        ]
+    )
+
+    return response.text
+
+# Replace 
+project_id = "qwiklabs-gcp-04-6d712a228492"
+location = "us-central1"
+
+# Call the function and print the result
+response = analyze_bouquet_image(project_id, location)
+print(response)
+
+____
+
+Part.from_uri(
+            file_uri="https://storage.googleapis.com/cloud-samples-data/generative-ai/image/bouquet.jpg",
+            mime_type="image/jpeg"
+
+
+_____________
+
+ПРОБУЄМО ТАК і це ПРАЦЮЄ
+___________________
+Task 2: Analyze Image and Generate Birthday Wishes
+
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part, Image
+import os
+
+def analyze_bouquet_image(project_id: str, location: str):
+    """Analyze bouquet image and generate birthday wishes.
+
+    Args:
+        project_id: Google Cloud project ID
+        location: Google Cloud region"""
+
+    # Initialize Vertex AI
+    vertexai.init(project=project_id, location=location)
+
+    # Load the Gemini multimodal model (version 2.0 flash)
+    model = GenerativeModel("gemini-2.0-flash-001")
+
+    # Load the image from file
+    image_path = "bouquet.jpeg"
+    image_part = Part.from_image(Image.load_from_file(image_path))
+
+    # Generate birthday wishes based on the image
+    print("Generate the birthday wishe based on your image...")
+    response_stream = model.generate_content(
+        [image_part, Part.from_text("Analyze this bouquet image and create birthday wishes in English.")],
+        stream=True
+    )
+
+    full_response = ""
+    for chunk in response_stream:
+        if chunk.text:
+            print(chunk.text, end="", flush=True)
+            full_response += chunk.text
+    print("\n")
+
+    print("✅ Birthday wishes generation completed!")
+    return full_response
+
+# Execute the function
+analyze_bouquet_image(
+    project_id='qwiklabs-gcp-01-f9070f58bc85',
+    location='europe-west1'
+)
+
+/usr/bin/python3 analyze_bouquet.py
+
+___________________
+ПОВНА ВЕРСІЯ:
+________________
+Environment Setup
+export PROJECT_ID=$(gcloud config get-value project)
+export REGION=$(gcloud compute project-info describe --format="value(commonInstanceMetadata.items[google-compute-default-region])")
+
+echo "Project ID: $PROJECT_ID"
+echo "Region: $REGION"
+________________
+Task 2: 
+
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part, Image
+import os
+
+def analyze_bouquet_image(project_id: str, location: str):
+    """Analyze bouquet image and generate birthday wishes.
+
+    Args:
+        project_id: Google Cloud project ID
+        location: Google Cloud region"""
+
+    # Initialize Vertex AI
+    vertexai.init(project=project_id, location=location)
+
+    # Load the Gemini multimodal model (version 2.0 flash)
+    model = GenerativeModel("gemini-2.0-flash-001")
+
+    # Load the image from file
+    image_path = "generated_bouquet.png"
+    image_part = Part.from_image(Image.load_from_file(image_path))
+
+    # Generate birthday wishes based on the image
+    print("🎂 Analyzing image and generating birthday wishes...")
+    response_stream = model.generate_content(
+        [image_part, Part.from_text("Please analyze this bouquet image and create warm birthday wishes in English. Describe what you see and express sincere birthday blessings.")],
+        stream=True
+    )
+
+    full_response = ""
+    for chunk in response_stream:
+        if chunk.text:
+            print(chunk.text, end="", flush=True)
+            full_response += chunk.text
+    print("\n")
+
+    print("✅ Birthday wishes generation completed!")
+    return full_response
+
+# Execute the function
+analyze_bouquet_image(
+    project_id=os.environ['PROJECT_ID'],
+    location=os.environ['REGION']
+)
+
+/usr/bin/python3 AnalyzeImage.py
