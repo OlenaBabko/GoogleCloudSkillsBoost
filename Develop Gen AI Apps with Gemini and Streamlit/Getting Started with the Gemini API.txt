@@ -1,0 +1,302 @@
+Getting Started with the Gemini API in Vertex AI with cURL
+GSP1228
+
+_______
+Task 1. Open the notebook in Vertex AI Workbench
+In the Google Cloud console, on the Navigation menu (Navigation menu icon), click Vertex AI > Workbench.
+Find the Workbench instance name instance and click on the Open JupyterLab button.
+The JupyterLab interface for your Workbench instance opens in a new browser tab.
+
+Note: If you do not see notebooks in JupyterLab, please follow these additional steps to reset the instance:
+1. Close the browser tab for JupyterLab, and return to the Workbench home page.
+2. Select the checkbox next to the instance name, and click Reset.
+3. After the Open JupyterLab button is enabled again, wait one minute, and then click Open JupyterLab.
+
+_______
+Task 2. Set up the notebook
+Open the notebook name file.
+In the Select Kernel dialog, choose Python 3 from the list of available kernels.
+Run through the Getting Started and the Import libraries sections of the notebook.
+
+For Project ID, use Project ID, and for Location, use Region.
+Note: You can skip any notebook cells that are noted Colab only. If you experience a 429 response from any of the notebook cell executions, wait 1 minute before running the cell again to proceed.
+In the following sections, you will run through the notebook cells to see how to use the Gemini API in Vertex AI with cURL commands to interact with the Gemini 2.0 Flash (gemini-2.0-flash) model.
+
+______
+Task 3. Use the Gemini Flash Model
+Gemini 2.0 Flash (gemini-2.0-flash) model is tailored for natural language tasks such as classification, summarization, extraction, and writing. In this task, you will learn how to use the Gemini 2.0 Flash to generate text from a prompt.
+
+In this task, run through the notebook cells to see how to use the Gemini Flash model to generate text from a text prompt.
+Note: Save the notebook file before clicking on the Check my progress button for every task.
+Click Check my progress to verify the objective.
+Generate text from the text prompt
+____________________________
+import os
+from google import genai
+
+PROJECT_ID = "qwiklabs-gcp-03-9129e96add8f"
+LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "global")
+client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
+
+
+
+MODEL_ID = "gemini-2.5-flash"
+
+api_host = "aiplatform.googleapis.com"
+if LOCATION != "global":
+    api_host = f"{LOCATION}-aiplatform.googleapis.com"
+
+os.environ["API_ENDPOINT"] = (
+    f"{api_host}/v1/projects/{PROJECT_ID}/locations/{LOCATION}/publishers/google/models/{MODEL_ID}"
+)
+API_ENDPOINT = os.environ["API_ENDPOINT"]
+
+
+
+%%bash
+
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://${API_ENDPOINT}:generateContent \
+  -d '{
+    "contents": {
+      "role": "USER",
+      "parts": { "text": "Why is the sky blue?" },
+    },
+    "generation_config": {
+      "response_modalities": "TEXT",
+     },
+  }' 2>/dev/null >response.json
+
+jq -r ".candidates[].content.parts[].text" response.json
+____________________________
+
+
+
+Generate multi-turn conversations from the chat prompt
+Run Function calling cell in the notebook
+____________________________
+%%bash
+
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://${API_ENDPOINT}:generateContent \
+  -d '{
+  "contents": {
+    "role": "user",
+    "parts": {
+      "text": "Which theaters in Mountain View show Barbie movie?"
+    }
+  },
+  "tools": [
+    {
+      "function_declarations": [
+        {
+          "name": "find_movies",
+          "description": "find movie titles currently playing in theaters based on any description, genre, title words, etc.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA or a zip code e.g. 95616"
+              },
+              "description": {
+                "type": "string",
+                "description": "Any kind of description including category or genre, title words, attributes, etc."
+              }
+            },
+            "required": [
+              "description"
+            ]
+          }
+        },
+        {
+          "name": "find_theaters",
+          "description": "find theaters based on location and optionally movie title which are is currently playing in theaters",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA or a zip code e.g. 95616"
+              },
+              "movie": {
+                "type": "string",
+                "description": "Any movie title"
+              }
+            },
+            "required": [
+              "location"
+            ]
+          }
+        },
+        {
+          "name": "get_showtimes",
+          "description": "Find the start times for movies playing in a specific theater",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA or a zip code e.g. 95616"
+              },
+              "movie": {
+                "type": "string",
+                "description": "Any movie title"
+              },
+              "theater": {
+                "type": "string",
+                "description": "Name of theater"
+              },
+              "date": {
+                "type": "string",
+                "description": "Date for requested showtime"
+              }
+            },
+            "required": [
+              "location",
+              "movie",
+              "theater",
+              "date"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}' 2>/dev/null >response.json
+
+jq -r ".candidates[].content.parts[].functionCall" response.json
+____________________________
+
+
+_____
+Task 4. Multimodal input
+The Gemini 2.0 Flash (gemini-2.0-flash) is a multimodal model that supports adding images and videos in text or chat prompts for a text response.
+
+In this task, run through the notebook cells to see how to use the Gemini 2.0 Flash model to generate text from an image from a local file, an image from Google Cloud Storage, and a video file.
+Click Check my progress to verify the objective.
+Generate text from the image file
+____________________________
+! gsutil cp "gs://cloud-samples-data/generative-ai/image/320px-Felis_catus-cat_on_snow.jpg" ./image.jpg
+
+
+
+%%bash
+
+# Encode image data in base64
+image_file="image.jpg"
+if [[ -f "$image_file" ]]; then
+  if command -v base64 &> /dev/null; then
+    # base64 is available
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      # macOS -b 0 to avoid line wrapping
+      data=$(base64 -b 0 -i "$image_file")
+    else
+      # Linux -w 0 to avoid line wrapping
+      data=$(base64 -w 0 "$image_file")
+    fi
+  else
+    echo "Error: base64 command not found."
+    exit 1
+  fi
+else
+  echo "Error: Image file '$image_file' not found."
+  exit 1
+fi
+
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://${API_ENDPOINT}:generateContent \
+  -d "{
+      'contents': {
+        'role': 'USER',
+        'parts': [
+          {
+            'text': 'Is it a cat?'
+          },
+          {
+            'inline_data': {
+              'data': '${data}',
+              'mime_type':'image/jpeg'
+            }
+          }
+        ]
+       }
+    }" 2>/dev/null >response.json
+
+jq -r ".candidates[].content.parts[].text" response.json
+____________________________
+%%bash
+
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://${API_ENDPOINT}:generateContent \
+  -d '{
+    "contents": {
+      "role": "USER",
+      "parts": [
+        {
+          "text": "Describe this image"
+        },
+        {
+          "file_data": {
+            "mime_type": "image/png",
+            "file_uri": "gs://cloud-samples-data/generative-ai/image/320px-Felis_catus-cat_on_snow.jpg"
+          }
+        }
+      ]
+    },
+    "generation_config": {
+      "temperature": 0.2,
+      "top_p": 0.1,
+      "top_k": 16,
+      "max_output_tokens": 2048,
+      "candidate_count": 1,
+      "stop_sequences": []
+    },
+    "safety_settings": {
+      "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+      "threshold": "BLOCK_LOW_AND_ABOVE"
+    }
+  }' 2>/dev/null >response.json
+
+jq -r ".candidates[].content.parts[].text" response.json
+______________________________
+
+
+Generate text from the video file
+______________________________________
+%%bash
+
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://${API_ENDPOINT}:generateContent \
+  -d \
+'{
+    "contents": {
+      "role": "USER",
+      "parts": [
+        {
+          "text": "Answer the following questions using the video only. What is the profession of the main person? What are the main features of the phone highlighted? Which city was this recorded in?"
+        },
+        {
+          "file_data": {
+            "mime_type": "video/mp4",
+            "file_uri": "gs://github-repo/img/gemini/multimodality_usecases_overview/pixel8.mp4"
+          }
+        }
+      ]
+    }
+  }' 2>/dev/null >response.json
+
+jq -r ".candidates[].content.parts[].text" response.json
+_____________________________________
+Congratulations!
+Congratulations! In this lab, you have successfully learned how to use the Gemini API in Vertex AI with cURL commands to interact with the Gemini 2.0 Flash (gemini-2.0-flash) model to generate text, add model parameters, chat, generate text from a local image, generate text from an image on Google Cloud Storage and generate text from a video file.
