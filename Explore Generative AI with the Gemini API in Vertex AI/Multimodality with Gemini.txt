@@ -1,0 +1,575 @@
+Multimodality with Gemini
+GSP1210
+
+
+Task 1. Open the notebook in Vertex AI Workbench
+In the Google Cloud console, on the Navigation menu (), click Vertex AI > Workbench.
+Find the Workbench instance name instance and click on the Open JupyterLab button.
+The JupyterLab interface for your Workbench instance opens in a new browser tab.
+Note: If you do not see notebooks in JupyterLab, please follow these additional steps to reset the instance:
+1. Close the browser tab for JupyterLab, and return to the Workbench home page.
+2. Select the checkbox next to the instance name, and click Reset.
+3. After the Open JupyterLab button is enabled again, wait one minute, and then click Open JupyterLab.
+
+
+
+
+Task 2. Set up the notebook
+Open the notebook name file.
+In the Select Kernel dialog, choose Python 3 from the list of available kernels.
+Run through the Getting Started section of the notebook. The Project ID and Location are pre-configured for you.
+Note: If you experience a 429 response from any of the notebook cell executions, wait one minute before running the cell again to proceed.
+________
+%pip install --upgrade --quiet google-genai gitingest
+_______
+import IPython
+
+app = IPython.Application.instance()
+app.kernel.do_shutdown(True)
+___________
+from google import genai
+import os
+
+PROJECT_ID = "qwiklabs-gcp-03-40cc328b6c25" 
+LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "global")
+
+client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
+__________________
+MODEL_ID = "gemini-2.5-flash"  # @param {type: "string"}
+_____
+
+
+Task 3. Use the Gemini Flash model
+Gemini Flash is a multimodal model that supports multimodal prompts. You can include text, image(s), and video in your prompt requests and get text or code responses.
+In this task, run through the specified notebook cells to see how to use the Gemini Flash model. Return here to check your progress as you complete the objectives.
+Document Summarization
+_____________
+pdf_file_uri = "gs://cloud-samples-data/generative-ai/pdf/2403.05530.pdf"
+pdf_file = Part.from_uri(file_uri=pdf_file_uri, mime_type="application/pdf")
+
+
+prompt = "How many tokens can the model process?"
+
+
+contents = [pdf_file, prompt]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+_____________
+prompt = """
+  You are a professional document summarization specialist.
+  Please summarize the given document.
+"""
+
+
+contents = [pdf_file, prompt]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+___________
+
+
+Image understanding across multiple images
+One of the Gemini's capabilities is being able to reason across multiple images. In this example, you use Gemini to calculate the total cost of groceries using an image of fruits and a price list.
+Run through the Image understanding across multiple images section of the notebook.
+Click Check my progress to verify the objective.
+__________
+image_glasses1_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/glasses1.jpg"
+image_glasses2_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/glasses2.jpg"
+
+
+display(Image(image_glasses1_url, width=150))
+display(Image(image_glasses2_url, width=150))
+
+
+prompt = """
+I have an oval face. Given my face shape, which glasses would be more suitable?
+
+
+Explain how you reached this decision.
+Provide your recommendation based on my face shape, and please give an explanation for each.
+"""
+
+
+contents = [
+    prompt,
+    Part.from_uri(file_uri=image_glasses1_url, mime_type="image/jpeg"),
+    Part.from_uri(file_uri=image_glasses2_url, mime_type="image/jpeg"),
+]
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+
+
+__________
+
+
+Image understanding across multiple images
+Generating a video description
+Gemini can also extract tags throughout a video and retrieve extra information beyond the video contents. In this example, you use Gemini to extract tags and retrieve extra information from different videos:
+Run through the Generating a video description section of the notebook.
+Click Check my progress to verify the objective.
+
+
+Generating a video description
+Audio understanding
+Gemini can directly process audio for long-context understanding. In this example, you use Gemini to process audio for long-context understanding:
+Run through the Audio understanding section of the notebook.
+Click Check my progress to verify the objective.
+____________
+video_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/mediterraneansea.mp4"
+display(Video(video_url, width=350))
+
+
+prompt = """
+What is shown in this video?
+Where should I go to see it?
+What are the top 5 places in the world that look like this?
+Provide the 10 best tags for this video?
+"""
+
+
+video = Part.from_uri(
+    file_uri=video_url,
+    mime_type="video/mp4",
+)
+contents = [prompt, video]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+
+
+______________
+You can also use Gemini to retrieve extra information beyond the video contents.
+___________
+video_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/ottawatrain3.mp4"
+display(Video(video_url, width=350))
+
+
+prompt = """
+Which train line is this?
+Where does it go?
+What are the stations/stops?
+Which river is being crossed?
+"""
+
+
+video = Part.from_uri(
+    file_uri=video_url,
+    mime_type="video/mp4",
+)
+contents = [prompt, video]
+
+
+response = client.models.generate_content(
+    model=MODEL_ID, contents=contents, config=GenerateContentConfig(temperature=0)
+)
+display(Markdown(response.text))
+
+
+______________
+
+
+Audio understanding
+Reason across a codebase
+Gemini can directly process audio for long-context understanding. In this example, you use Gemini to process audio for long-context understanding:
+Run through the Reason across a codebase section of the notebook.
+Click Check my progress to verify the objective.
+_____________
+audio_url = (
+    "https://storage.googleapis.com/cloud-samples-data/generative-ai/audio/pixel.mp3"
+)
+display(Audio(audio_url))
+_________
+Summarization
+______________
+prompt = """
+  Please provide a short summary and title for the audio.
+  Provide chapter titles, be concise and short, no need to provide chapter summaries.
+  Provide each of the chapter titles in a numbered list.
+  Do not make up any information that is not part of the audio and do not be verbose.
+"""
+
+
+audio_file = Part.from_uri(file_uri=audio_url, mime_type="audio/mpeg")
+contents = [audio_file, prompt]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+_________
+Transcription
+____________
+prompt = """
+    Transcribe this interview, in the format of timecode, speaker, caption.
+    Use speaker A, speaker B, etc. to identify the speakers.
+    Provide each piece of information on a separate bullet point.
+"""
+
+
+audio_file = Part.from_uri(file_uri=audio_url, mime_type="audio/mpeg")
+contents = [audio_file, prompt]
+
+
+response = client.models.generate_content(
+    model=MODEL_ID,
+    contents=contents,
+    config=GenerateContentConfig(max_output_tokens=8192),
+)
+display(Markdown(response.text))
+
+
+____________
+
+
+Reason across a codebase
+Video and audio understanding
+In this example, you try out Gemini's native multimodal and long-context capabilities on video interleaving with audio inputs.:
+Run through the Video and audio understanding section of the notebook.
+Click Check my progress to verify the objective.
+____________
+# The GitHub repository URL
+repo_url = "https://github.com/GoogleCloudPlatform/microservices-demo"  # @param {type:"string"}
+__________
+Create an index and extract the contents of a codebase
+________
+exclude_patterns = {
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.svg",
+    "*.ico",
+    "*.webp",
+    "*.jar",
+    ".git/",
+    "*.gitkeep",
+}
+_, code_index, code_text = ingest(repo_url, exclude_patterns=exclude_patterns)
+____________________
+Create a content cache for the codebase
+_________________
+prompt = f"""
+Context:
+- The entire codebase is provided below.
+- Here is an index of all of the files in the codebase:
+    \n\n{code_index}\n\n.
+- Then each of the files is concatenated together. You will find all of the code you need:
+    \n\n{code_text}\n\n
+"""
+
+
+cached_content = client.caches.create(
+    model="gemini-2.5-flash",
+    config=CreateCachedContentConfig(
+        contents=prompt,
+        ttl="3600s",
+    ),
+)
+_________________
+Create a developer getting started guide
+____________________
+question = """
+  Provide a getting started guide to onboard new developers to the codebase.
+"""
+
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=question,
+    config=GenerateContentConfig(
+        cached_content=cached_content.name,
+    ),
+)
+display(Markdown(response.text))
+_________________
+Finding bugs in the code¶
+_______________________
+question = """
+    Find the top 3 most severe issues in the codebase.
+"""
+
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=question,
+    config=GenerateContentConfig(
+        cached_content=cached_content.name,
+    ),
+)
+display(Markdown(response.text))
+___________________
+Summarizing the codebase
+________________
+question = """
+  Give me a summary of this codebase, and tell me the top 3 things that I can learn from it.
+"""
+
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=question,
+    config=GenerateContentConfig(
+        cached_content=cached_content.name,
+    ),
+)
+display(Markdown(response.text))
+_____________
+
+
+Video and audio understanding
+All modalities (images, video, audio, text) at once
+Gemini is natively multimodal and supports interleaving of data from different modalities. In this example, you try a mix of audio, visual, text, and code inputs in the same input sequence.
+Run through the All modalities (images, video, audio, text) at once section of the notebook.
+Click Check my progress to verify the objective.
+__________
+video_url = (
+    "https://storage.googleapis.com/cloud-samples-data/generative-ai/video/pixel8.mp4"
+)
+display(Video(video_url, width=350))
+____________
+prompt = """
+  Provide a detailed description of the video.
+  The description should also contain any important dialogue from the video and key features of the phone.
+"""
+
+
+video = Part.from_uri(
+    file_uri=video_url,
+    mime_type="video/mp4",
+)
+contents = [prompt, video]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+
+
+____________
+
+
+All modalities (images, video, audio, text) at once
+Generating recommendations based on provided images
+Gemini is capable of image comparison and providing recommendations. This is particularly useful for retail companies who want to provide users product recommendations based on their current setup.
+Run through the Generating recommendations based on provided images section of the notebook.
+Click Check my progress to verify the objective.
+__________
+video_url = "gs://cloud-samples-data/generative-ai/video/behind_the_scenes_pixel.mp4"
+display(Video(video_url.replace("gs://", "https://storage.googleapis.com/"), width=350))
+_____________
+image_url = "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/a-man-and-a-dog.png"
+display(Image(image_url, width=350))
+____________
+prompt = """
+  Look through each frame in the video carefully and answer the questions.
+  Only base your answers strictly on what information is available in the video attached.
+  Do not make up any information that is not part of the video and do not be too
+  verbose, be straightforward.
+
+
+  Questions:
+  - When is the moment in the image happening in the video? Provide a timestamp.
+  - What is the context of the moment and what does the narrator say about it?
+"""
+
+
+contents = [
+    prompt,
+    Part.from_uri(file_uri=video_url, mime_type="video/mp4"),
+    Part.from_uri(file_uri=image_url, mime_type="image/png"),
+]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+_______________
+
+
+Generating recommendations based on provided images
+Understand entity relationships in technical diagrams
+Gemini has multimodal capabilities that enable it to understand diagrams and take actionable steps, such as optimization or code generation. In this example, you see how Gemini can decipher an entity relationship (ER) diagram, understand the relationships between tables, identify requirements for optimization in a specific environment like BigQuery, and even generate corresponding code.
+Run through the Understand entity relationships in technical diagrams section of the notebook.
+Click Check my progress to verify the objective.
+Generating open recommendations
+____________
+room_image_url = "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/living-room.png"
+display(Image(room_image_url, width=350))
+
+room_image = Part.from_uri(file_uri=room_image_url, mime_type="image/png")
+
+prompt = "Describe this room"
+contents = [prompt, room_image]
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+___________
+prompt1 = "Recommend a new piece of furniture for this room"
+prompt2 = "Explain the reason in detail"
+contents = [prompt1, room_image, prompt2]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+___________
+Generating recommendations based on provided images
+___________________
+art_image_urls = [
+    "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/room-art-1.png",
+    "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/room-art-2.png",
+    "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/room-art-3.png",
+    "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/room-art-4.png",
+]
+
+
+md_content = f"""
+|Customer photo |
+|:-----:|
+| <img src="{room_image_url}" width="50%"> |
+
+
+|Art 1| Art 2 | Art 3 | Art 4 |
+|:-----:|:----:|:-----:|:----:|
+| <img src="{art_image_urls[0]}" width="60%">|<img src="{art_image_urls[1]}" width="100%">|<img src="{art_image_urls[2]}" width="60%">|<img src="{art_image_urls[3]}" width="60%">|
+"""
+
+
+display(Markdown(md_content))
+
+
+# Load wall art images as Part objects
+art_images = [
+    Part.from_uri(file_uri=url, mime_type="image/png") for url in art_image_urls
+]
+
+
+# To recommend an item from a selection, you will need to label the item number within the prompt.
+# That way you are providing the model with a way to reference each image as you pose a question.
+# Labeling images within your prompt also helps reduce hallucinations and produce better results.
+prompt = """
+  You are an interior designer.
+  For each piece of wall art, explain whether it would be appropriate for the style of the room.
+  Rank each piece according to how well it would be compatible in the room.
+"""
+
+
+contents = [
+    "Consider the following art pieces:",
+    "art 1:",
+    art_images[0],
+    "art 2:",
+    art_images[1],
+    "art 3:",
+    art_images[2],
+    "art 4:",
+    art_images[3],
+    "room:",
+    room_image,
+    prompt,
+]
+
+
+response = client.models.generate_content(model=MODEL_ID, contents=contents)
+display(Markdown(response.text))
+____________________
+
+
+Understand entity relationships in technical diagrams
+Compare images for similarities and differences
+Gemini can compare images and identify similarities or differences between objects. In this example, you use Gemini to compare two images of the same location and identify the differences between them.
+Run through the Compare images for similarities and differences section of the notebook.
+Click Check my progress to verify the objective.
+Compare images for similarities and differences
+___________
+image_er_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/er.png"
+display(Image(image_er_url, width=350))
+
+
+prompt = "Document the entities and relationships in this ER diagram."
+
+
+contents = [prompt, Part.from_uri(file_uri=image_er_url, mime_type="image/png")]
+
+
+# Use a more deterministic configuration with a low temperature
+config = GenerateContentConfig(
+    temperature=0.1,
+    top_p=0.8,
+    top_k=40,
+    candidate_count=1,
+    max_output_tokens=8192,
+)
+
+
+response = client.models.generate_content(
+    model=MODEL_ID,
+    contents=contents,
+    config=config,
+)
+display(Markdown(response.text))
+
+
+___________
+Compare images for similarities and differences¶
+_________________
+
+
+___image_landmark1_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/landmark1.jpg"
+image_landmark2_url = "https://storage.googleapis.com/github-repo/img/gemini/multimodality_usecases_overview/landmark2.jpg"
+
+
+md_content = f"""
+| Image 1 | Image 2 |
+|:-----:|:----:|
+| <img src="{image_landmark1_url}" width="350"> | <img src="{image_landmark2_url}" width="350"> |
+"""
+
+
+display(Markdown(md_content))
+
+
+prompt1 = """
+Consider the following two images:
+Image 1:
+"""
+prompt2 = """
+Image 2:
+"""
+prompt3 = """
+1. What is shown in Image 1? Where is it?
+2. What is similar between the two images?
+3. What is difference between Image 1 and Image 2 in terms of the contents or people shown?
+"""
+
+
+contents = [
+    prompt1,
+    Part.from_uri(file_uri=image_landmark1_url, mime_type="image/jpeg"),
+    prompt2,
+    Part.from_uri(file_uri=image_landmark2_url, mime_type="image/jpeg"),
+    prompt3,
+]
+
+
+config = GenerateContentConfig(
+    temperature=0.0,
+    top_p=0.8,
+    top_k=40,
+    candidate_count=1,
+    max_output_tokens=2048,
+)
+
+
+response = client.models.generate_content(
+    model=MODEL_ID,
+    contents=contents,
+    config=config,
+)
+display(Markdown(response.text))
+______________
+
+
+Congratulations!
+You have now completed the lab! In this lab, you learned how to use the Gemini API in Vertex AI to generate text from text and image(s) prompts.
+
